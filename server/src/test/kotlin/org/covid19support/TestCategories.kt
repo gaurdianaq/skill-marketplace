@@ -13,7 +13,7 @@ import kotlin.test.assertTrue
 
 class TestCategories : BaseTest() {
     @Test
-    fun testCategories() = withTestApplication({
+    fun testCategories() : Unit = withTestApplication({
         main(true)
         categories_module()
     }) {

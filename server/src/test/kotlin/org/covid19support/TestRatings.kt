@@ -36,7 +36,7 @@ class TestRatings : BaseTest() {
     //TODO Delete Ratings Failure (Unauthorized)
 
     @Test
-    fun addRatings() = withTestApplication ({
+    fun addRatings() : Unit = withTestApplication ({
         main(true)
         users_module()
         ratings_module()
@@ -129,7 +129,7 @@ class TestRatings : BaseTest() {
     }
 
     @Test
-    fun addRatingsForeignKeyViolation() = withTestApplication({
+    fun addRatingsForeignKeyViolation() : Unit = withTestApplication({
         main(true)
         users_module()
         ratings_module()
@@ -155,7 +155,7 @@ class TestRatings : BaseTest() {
     }
 
     @Test
-    fun addRatingsInvalidDataFormat() = withTestApplication({
+    fun addRatingsInvalidDataFormat() : Unit = withTestApplication({
         main(true)
         users_module()
         ratings_module()
@@ -181,7 +181,7 @@ class TestRatings : BaseTest() {
     }
 
     @Test
-    fun addRatingsUnauthenticated() = withTestApplication ({
+    fun addRatingsUnauthenticated() : Unit = withTestApplication ({
         main(true)
         ratings_module()
     }) {
@@ -195,7 +195,7 @@ class TestRatings : BaseTest() {
     }
 
     @Test
-    fun getSingleRating() = withTestApplication({
+    fun getSingleRating() : Unit = withTestApplication({
         main(true)
         users_module()
         ratings_module()
@@ -241,7 +241,7 @@ class TestRatings : BaseTest() {
     }
 
     @Test
-    fun getRatingForeignKeyViolation() = withTestApplication({
+    fun getRatingForeignKeyViolation() : Unit = withTestApplication({
         main(true)
         ratings_module()
     }) {

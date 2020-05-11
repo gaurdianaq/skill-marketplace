@@ -6,6 +6,7 @@ import io.ktor.http.*
 import io.ktor.server.testing.*
 import io.ktor.sessions.get
 import io.ktor.sessions.sessions
+import org.covid19support.constants.Message
 import org.covid19support.modules.session.session_module
 import org.covid19support.modules.users.User
 import org.covid19support.modules.users.users_module
@@ -26,7 +27,7 @@ class TestUsers : BaseTest() {
     //TODO Delete User Unauthorized
 
     @Test
-    fun addUsers() = withTestApplication({
+    fun addUsers() : Unit = withTestApplication({
         main(true)
         users_module()
     }) {
@@ -72,7 +73,7 @@ class TestUsers : BaseTest() {
     }
 
     @Test
-    fun addUserLogsIn() = withTestApplication({
+    fun addUserLogsIn() : Unit = withTestApplication({
         main(true)
         users_module()
         session_module()
@@ -96,7 +97,7 @@ class TestUsers : BaseTest() {
     }
 
     @Test
-    fun addUsersUniqueViolation() = withTestApplication ({
+    fun addUsersUniqueViolation() : Unit = withTestApplication ({
         main(true)
         users_module()
     }) {
@@ -124,7 +125,7 @@ class TestUsers : BaseTest() {
     }
 
     @Test
-    fun addUserInvalidData() = withTestApplication ({
+    fun addUserInvalidData() : Unit = withTestApplication ({
         main(true)
         users_module()
     }) {
@@ -139,17 +140,33 @@ class TestUsers : BaseTest() {
     }
 
     @Test
-    fun getUserNotFound() = withTestApplication({
+    fun getUserNotFound() : Unit = withTestApplication({
         main(true)
         users_module()
     }) {
         with(handleRequest(HttpMethod.Get, Routes.USERS)) {
             assertEquals(HttpStatusCode.NoContent, response.status())
-            assertTrue(validateMessageFormat(gson.fromJson(response.content, JsonObject::class.java)))
+            assertDoesNotThrow { gson.fromJson(response.content, Message::class.java) }
         }
         with(handleRequest(HttpMethod.Get, "${Routes.USERS}/3")) {
             assertEquals(HttpStatusCode.NoContent, response.status())
-            assertTrue(validateMessageFormat(gson.fromJson(response.content, JsonObject::class.java)))
+            assertDoesNotThrow { gson.fromJson(response.content, Message::class.java) }
+        }
+    }
+
+    @Test
+    fun getUserInvalidId() : Unit = withTestApplication({
+        main(true)
+        users_module()
+    }) {
+        with(handleRequest(HttpMethod.Get, "${Routes.USERS}/asgas")) {
+            assertEquals(HttpStatusCode.BadRequest, response.status())
+            assertDoesNotThrow { gson.fromJson(response.content, Message::class.java) }
+        }
+
+        with(handleRequest(HttpMethod.Get, "${Routes.USERS}/123.12")) {
+            assertEquals(HttpStatusCode.BadRequest, response.status())
+            assertDoesNotThrow { gson.fromJson(response.content, Message::class.java) }
         }
     }
 }

@@ -8,6 +8,7 @@ import org.junit.jupiter.api.Test
 import kotlin.test.*import io.ktor.server.testing.withTestApplication
 import io.ktor.sessions.get
 import io.ktor.sessions.sessions
+import org.covid19support.constants.Message
 import org.covid19support.modules.session.Login
 import org.covid19support.modules.session.session_module
 import org.covid19support.modules.test.test_module
@@ -75,14 +76,13 @@ class TestSession : BaseTest() {
             }) {
                 assertEquals(HttpStatusCode.BadRequest, response.status())
                 assertNull(sessions.get<SessionAuth>())
-                assertDoesNotThrow{gson.fromJson(response.content, JsonObject::class.java)}
-                assertTrue(validateMessageFormat(gson.fromJson(response.content, JsonObject::class.java)))
+                assertDoesNotThrow { gson.fromJson(response.content, Message::class.java) }
             }
         }
     }
 
     @Test
-    fun loginFailUserDoesNotExist() = withTestApplication ({
+    fun loginFailUserDoesNotExist() : Unit = withTestApplication ({
         main(true)
         users_module()
         session_module()
@@ -95,14 +95,13 @@ class TestSession : BaseTest() {
             }) {
                 assertEquals(HttpStatusCode.BadRequest, response.status())
                 assertNull(sessions.get<SessionAuth>())
-                assertDoesNotThrow{gson.fromJson(response.content, JsonObject::class.java)}
-                assertTrue(validateMessageFormat(gson.fromJson(response.content, JsonObject::class.java)))
+                assertDoesNotThrow { gson.fromJson(response.content, Message::class.java) }
             }
         }
     }
 
     @Test
-    fun logoutSuccess() = withTestApplication ({
+    fun logoutSuccess() : Unit = withTestApplication ({
         main(true)
         users_module()
         session_module()
@@ -136,8 +135,7 @@ class TestSession : BaseTest() {
                 with(handleRequest(HttpMethod.Post, Routes.LOGOUT)) {
                     assertEquals(HttpStatusCode.OK, response.status())
                     assertNull(sessions.get<SessionAuth>())
-                    assertDoesNotThrow{gson.fromJson(response.content, JsonObject::class.java)}
-                    assertTrue(validateMessageFormat(gson.fromJson(response.content, JsonObject::class.java)))
+                    assertDoesNotThrow { gson.fromJson(response.content, Message::class.java) }
                 }
             }
 
@@ -145,7 +143,7 @@ class TestSession : BaseTest() {
     }
 
     @Test
-    fun logoutFailedAlreadyLoggedOut() = withTestApplication ({
+    fun logoutFailedAlreadyLoggedOut() : Unit = withTestApplication ({
         main(true)
         users_module()
         session_module()
@@ -173,22 +171,20 @@ class TestSession : BaseTest() {
             with(handleRequest(HttpMethod.Post, Routes.LOGOUT)) {
                 assertEquals(HttpStatusCode.OK, response.status())
                 assertNull(sessions.get<SessionAuth>())
-                assertDoesNotThrow{gson.fromJson(response.content, JsonObject::class.java)}
-                assertTrue(validateMessageFormat(gson.fromJson(response.content, JsonObject::class.java)))
+                assertDoesNotThrow { gson.fromJson(response.content, Message::class.java) }
             }
 
             with(handleRequest(HttpMethod.Post, Routes.LOGOUT)) {
                 assertEquals(HttpStatusCode.BadRequest, response.status())
                 assertNull(sessions.get<SessionAuth>())
-                assertDoesNotThrow{gson.fromJson(response.content, JsonObject::class.java)}
-                assertTrue(validateMessageFormat(gson.fromJson(response.content, JsonObject::class.java)))
+                assertDoesNotThrow { gson.fromJson(response.content, Message::class.java) }
             }
 
         }
     }
 
     @Test
-    fun authenticateSuccess() = withTestApplication ({
+    fun authenticateSuccess() : Unit = withTestApplication ({
         main(true)
         users_module()
         session_module()
@@ -226,7 +222,7 @@ class TestSession : BaseTest() {
     }
 
     @Test
-    fun authenticateFailureNotLoggedIn() = withTestApplication ({
+    fun authenticateFailureNotLoggedIn() : Unit = withTestApplication ({
         main(true)
         users_module()
         session_module()
@@ -235,14 +231,13 @@ class TestSession : BaseTest() {
             with(handleRequest(HttpMethod.Get, Routes.AUTHENTICATE)) {
                 assertEquals(HttpStatusCode.Unauthorized, response.status())
                 assertNull(sessions.get<SessionAuth>())
-                assertDoesNotThrow{gson.fromJson(response.content, JsonObject::class.java)}
-                assertTrue(validateMessageFormat(gson.fromJson(response.content, JsonObject::class.java)))
+                assertDoesNotThrow { gson.fromJson(response.content, Message::class.java) }
             }
         }
     }
 
     @Test
-    fun authenticateFailureInvalidToken() = withTestApplication ({
+    fun authenticateFailureInvalidToken() : Unit = withTestApplication ({
         main(true)
         users_module()
         session_module()
@@ -257,8 +252,7 @@ class TestSession : BaseTest() {
             with(handleRequest(HttpMethod.Get, Routes.AUTHENTICATE)) {
                 assertEquals(HttpStatusCode.Unauthorized, response.status())
                 assertNull(sessions.get<SessionAuth>())//session should be null after it finds the bad token since it will clear the session
-                assertDoesNotThrow{gson.fromJson(response.content, JsonObject::class.java)}
-                assertTrue(validateMessageFormat(gson.fromJson(response.content, JsonObject::class.java)))
+                assertDoesNotThrow { gson.fromJson(response.content, Message::class.java) }
             }
         }
     }

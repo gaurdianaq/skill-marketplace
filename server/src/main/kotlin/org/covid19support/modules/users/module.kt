@@ -78,20 +78,41 @@ fun Application.users_module() {
             route("/{id}") {
                 get {
                     var user: User? = null
-                    val id:Int = call.parameters["id"]!!.toInt()
-                    transaction(DbSettings.db) {
-                        val result:ResultRow? = Users.select{Users.id eq id}.firstOrNull()
+                    val id:Int? = call.parameters["id"]!!.toIntOrNull()
+                    if (id != null) {
+                        transaction(DbSettings.db) {
+                            val result:ResultRow? = Users.select{Users.id eq id}.firstOrNull()
 
-                        if (result != null) {
-                            user = Users.toUser(result)
+                            if (result != null) {
+                                user = Users.toUser(result)
+                            }
+
                         }
-
-                    }
-                    if (user == null) {
-                        call.respond(HttpStatusCode.NoContent, Message("User not found!"))
+                        if (user == null) {
+                            call.respond(HttpStatusCode.NoContent, Message("User not found!"))
+                        }
+                        else {
+                            call.respond(user!!)
+                        }
                     }
                     else {
-                        call.respond(user!!)
+                        call.respond(HttpStatusCode.BadRequest, Message("Must pass an integer value!"))
+                    }
+                }
+
+                patch {
+
+                }
+
+                delete {
+                    try {
+                        val id: Int? = call.parameters["id"]!!.toIntOrNull()
+                        transaction(DbSettings.db) {
+                            Users.deleteWhere { Users.id eq id }
+                        }
+                    }
+                    catch (ex:ExposedSQLException) {
+
                     }
                 }
             }
