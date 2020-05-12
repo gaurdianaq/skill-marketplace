@@ -64,7 +64,7 @@ fun Application.session_module() {
                         }
                         if (success) {
                             user = Users.toUser(result!!)
-                            call.sessions.set(SessionAuth(Token.create(result!![Users.id].value, loginInfo.email)))
+                            call.sessions.set(SessionAuth(Token.create(result!![Users.id].value, loginInfo.email, result!![Users.role])))
                             call.respond(HttpStatusCode.OK, user)
                         }
                         else {

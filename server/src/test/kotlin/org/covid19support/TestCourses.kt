@@ -538,4 +538,45 @@ class TestCourses : BaseTest() {
             assertDoesNotThrow { gson.fromJson(response.content, Message::class.java) }
         }
     }
+
+    @Test
+    fun invalidPaginationValuesLessThan1() : Unit = withTestApplication({
+        main(true)
+        courses_module()
+    }) {
+        with(handleRequest(HttpMethod.Get, "${Routes.COURSES}?page_size=0")) {
+            assertEquals(HttpStatusCode.BadRequest, response.status())
+            assertDoesNotThrow { gson.fromJson(response.content, Message::class.java) }
+        }
+
+        with(handleRequest(HttpMethod.Get, "${Routes.COURSES}?page_size=-1")) {
+            assertEquals(HttpStatusCode.BadRequest, response.status())
+            assertDoesNotThrow { gson.fromJson(response.content, Message::class.java) }
+        }
+
+        with(handleRequest(HttpMethod.Get, "${Routes.COURSES}?page=0")) {
+            assertEquals(HttpStatusCode.BadRequest, response.status())
+            assertDoesNotThrow { gson.fromJson(response.content, Message::class.java) }
+        }
+
+        with(handleRequest(HttpMethod.Get, "${Routes.COURSES}?page=-1")) {
+            assertEquals(HttpStatusCode.BadRequest, response.status())
+            assertDoesNotThrow { gson.fromJson(response.content, Message::class.java) }
+        }
+
+        with(handleRequest(HttpMethod.Get, "${Routes.COURSES}?page=-1&page_size=0")) {
+            assertEquals(HttpStatusCode.BadRequest, response.status())
+            assertDoesNotThrow { gson.fromJson(response.content, Message::class.java) }
+        }
+
+        with(handleRequest(HttpMethod.Get, "${Routes.COURSES}?page=-1&page_size=5")) {
+            assertEquals(HttpStatusCode.BadRequest, response.status())
+            assertDoesNotThrow { gson.fromJson(response.content, Message::class.java) }
+        }
+
+        with(handleRequest(HttpMethod.Get, "${Routes.COURSES}?page=2&page_size=-1")) {
+            assertEquals(HttpStatusCode.BadRequest, response.status())
+            assertDoesNotThrow { gson.fromJson(response.content, Message::class.java) }
+        }
+    }
 }

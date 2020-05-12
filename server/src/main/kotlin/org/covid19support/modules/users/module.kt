@@ -17,7 +17,9 @@ import org.jetbrains.exposed.sql.transactions.*
 import org.jetbrains.exposed.exceptions.*
 import org.mindrot.jbcrypt.BCrypt
 import org.covid19support.authentication.Token
+import org.covid19support.authentication.authenticate
 import org.covid19support.constants.Message
+import org.covid19support.constants.UNAUTHORIZED
 import java.lang.IllegalStateException
 
 
@@ -28,24 +30,31 @@ fun Application.users_module() {
                 val users: ArrayList<User> = arrayListOf()
                 val page_size: Int = run { if (call.parameters["page_size"]?.toIntOrNull() != null) call.parameters["page_size"]!!.toInt() else 10}
                 val current_page: Int = run { if (call.parameters["page"]?.toIntOrNull() != null) call.parameters["page"]!!.toInt() else 1}
-                transaction(DbSettings.db) {
-                    val results:List<ResultRow> = Users.selectAll().limit(page_size, offset = (page_size * (current_page-1)).toLong()).toList()
-                    results.forEach {
-                        users.add(Users.toUser(it))
-                    }
-                }
-                if (users.isEmpty()) {
-                    call.respond(HttpStatusCode.NoContent, Message("No users found!"))
+                if (current_page < 1 || page_size < 1) {
+                    call.respond(HttpStatusCode.BadRequest, Message("Invalid pagination values (Can't be less than 1)"))
                 }
                 else {
-                    call.respond(HttpStatusCode.OK, users)
+                    transaction(DbSettings.db) {
+                        val results:List<ResultRow> = Users.selectAll().limit(page_size, offset = (page_size * (current_page-1)).toLong()).toList()
+                        results.forEach {
+                            users.add(Users.toUser(it))
+                        }
+                    }
+                    if (users.isEmpty()) {
+                        call.respond(HttpStatusCode.NoContent, Message("No users found!"))
+                    }
+                    else {
+                        call.respond(HttpStatusCode.OK, users)
+                    }
                 }
+
             }
 
             post {
                 try {
                     val newUser: User = call.receive()
                     var id:Int = -1
+                    log.info(newUser.toString())
                     try {
                         val passhash = BCrypt.hashpw(newUser.password, BCrypt.gensalt())
                         transaction (DbSettings.db) {
@@ -58,7 +67,7 @@ fun Application.users_module() {
                             }.value
                         }
                         newUser.id = id
-                        call.sessions.set(SessionAuth(Token.create(id, newUser.email)))
+                        call.sessions.set(SessionAuth(Token.create(id, newUser.email, newUser.role)))
                         call.respond(HttpStatusCode.Created, newUser)
                     }
                     catch (ex:ExposedSQLException) {
@@ -105,14 +114,20 @@ fun Application.users_module() {
                 }
 
                 delete {
-                    try {
-                        val id: Int? = call.parameters["id"]!!.toIntOrNull()
-                        transaction(DbSettings.db) {
-                            Users.deleteWhere { Users.id eq id }
+                    val decodedToken: DecodedJWT? = authenticate(call)
+                    if (decodedToken != null) {
+                        try {
+                            val id: Int? = call.parameters["id"]!!.toIntOrNull()
+                            transaction(DbSettings.db) {
+                                Users.deleteWhere { Users.id eq id }
+                            }
+                        }
+                        catch (ex:ExposedSQLException) {
+
                         }
                     }
-                    catch (ex:ExposedSQLException) {
-
+                    else {
+                        call.respond(HttpStatusCode.Unauthorized, Message(UNAUTHORIZED))
                     }
                 }
             }
