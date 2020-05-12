@@ -120,7 +120,7 @@ fun Application.users_module() {
                             {
                                 try {
                                     var canDelete = false
-                                    if (authenticator.getRole()!! > Role.NORMAL)
+                                    if (authenticator.getRole()!! > Role.MODERATOR)
                                     {
                                         canDelete = true
                                     }
@@ -131,26 +131,23 @@ fun Application.users_module() {
                                         transaction(DbSettings.db) {
                                             Users.deleteWhere { Users.id eq id }
                                         }
-                                        call.respond(HttpStatusCode.OK, DELETED)
+                                        if (id == authenticator.getID()) {
+                                            call.sessions.clear<SessionAuth>()
+                                        }
+                                        call.respond(HttpStatusCode.OK, Message(DELETED))
                                     }
                                     else {
-                                        call.respond(HttpStatusCode.Forbidden, FORBIDDEN)
+                                        call.respond(HttpStatusCode.Forbidden, Message(FORBIDDEN))
                                     }
-
                                 }
                                 catch (ex:ExposedSQLException) {
-
+                                    log.error(ex.message)
                                 }
                             }
                             else {
                                 call.respond(HttpStatusCode.BadRequest, Message("Must pass an integer value!"))
                             }
-
                         }
-
-                    }
-                    else {
-                        call.respond(HttpStatusCode.Unauthorized, Message(UNAUTHORIZED))
                     }
                 }
             }

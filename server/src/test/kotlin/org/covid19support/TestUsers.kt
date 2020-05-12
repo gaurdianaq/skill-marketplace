@@ -7,9 +7,12 @@ import io.ktor.server.testing.*
 import io.ktor.sessions.get
 import io.ktor.sessions.sessions
 import org.covid19support.constants.Message
+import org.covid19support.modules.session.Login
 import org.covid19support.modules.session.session_module
 import org.covid19support.modules.users.User
+import org.covid19support.modules.users.Users
 import org.covid19support.modules.users.users_module
+import org.jetbrains.exposed.sql.transactions.transaction
 import org.junit.jupiter.api.*
 import org.junit.jupiter.api.Test
 import kotlin.test.*
@@ -209,5 +212,124 @@ class TestUsers : BaseTest() {
             assertEquals(HttpStatusCode.BadRequest, response.status())
             assertDoesNotThrow { gson.fromJson(response.content, Message::class.java) }
         }
+    }
+
+    @Test
+    fun deleteSelf() : Unit = withTestApplication({
+        main(true)
+        users_module()
+    }) {
+        val user = User(null, "user@user.org", "password", "User", "McUser", null)
+        cookiesSession {
+            with(handleRequest(HttpMethod.Post, Routes.USERS){
+                addHeader(HttpHeaders.ContentType, ContentType.Application.Json.toString())
+                setBody(gson.toJson(user))
+            }) {
+                assertEquals(HttpStatusCode.Created, response.status())
+                assertDoesNotThrow { gson.fromJson(response.content, User::class.java) }
+                user.id = gson.fromJson(response.content, User::class.java).id
+                assertNotNull(sessions.get<SessionAuth>())
+            }
+            with(handleRequest(HttpMethod.Delete, "${Routes.USERS}/${user.id}")) {
+                assertEquals(HttpStatusCode.OK, response.status())
+                assertDoesNotThrow { gson.fromJson(response.content, Message::class.java) }
+                assertNull(sessions.get<SessionAuth>())
+            }
+
+            with(handleRequest(HttpMethod.Get, "${Routes.USERS}/${user.id}")) {
+                assertEquals(HttpStatusCode.NoContent, response.status())
+                assertDoesNotThrow { gson.fromJson(response.content, Message::class.java) }
+            }
+
+        }
+    }
+
+    @Test
+    fun deleteUserUnauthenticated() : Unit = withTestApplication({
+        main(true)
+        users_module()
+    }) {
+        val user = User(null, "user@user.org", "password", "User", "McUser", null)
+        with(handleRequest(HttpMethod.Post, Routes.USERS){
+            addHeader(HttpHeaders.ContentType, ContentType.Application.Json.toString())
+            setBody(gson.toJson(user))
+        }) {
+            assertEquals(HttpStatusCode.Created, response.status())
+            assertDoesNotThrow { gson.fromJson(response.content, User::class.java) }
+            user.id = gson.fromJson(response.content, User::class.java).id
+        }
+        with(handleRequest(HttpMethod.Delete, "${Routes.USERS}/${user.id}")) {
+            assertEquals(HttpStatusCode.Unauthorized, response.status())
+            assertDoesNotThrow { gson.fromJson(response.content, Message::class.java) }
+        }
+
+        with(handleRequest(HttpMethod.Get, "${Routes.USERS}/${user.id}")) {
+            assertEquals(HttpStatusCode.OK, response.status())
+            assertDoesNotThrow { gson.fromJson(response.content, User::class.java) }
+        }
+    }
+
+    @Test
+    fun deleteUserUnauthorized() : Unit = withTestApplication({
+        main(true)
+        users_module()
+        session_module()
+    }) {
+        val user = User(null, "user@user.org", "password", "User", "McUser", null)
+        val mod = User(null, "mod@mod.org", "password", "Mod", "McMod", null, role = "Moderator")
+
+        transaction(DbSettings.db) {
+            user.id = Users.insertUserAndGetId(user)
+            mod.id = Users.insertUserAndGetId(mod)
+        }
+
+        cookiesSession {
+            with(handleRequest(HttpMethod.Post, Routes.LOGIN){
+                addHeader(HttpHeaders.ContentType, ContentType.Application.Json.toString())
+                setBody(gson.toJson(Login(user.email, user.password)))
+            }) {
+                assertEquals(HttpStatusCode.OK, response.status())
+                assertDoesNotThrow { gson.fromJson(response.content, User::class.java) }
+            }
+
+            with(handleRequest(HttpMethod.Delete, "${Routes.USERS}/${mod.id}")) {
+                assertEquals(HttpStatusCode.Forbidden, response.status())
+                assertDoesNotThrow { gson.fromJson(response.content, Message::class.java) }
+            }
+
+            with(handleRequest(HttpMethod.Get, "${Routes.USERS}/${mod.id}")) {
+                assertEquals(HttpStatusCode.OK, response.status())
+                assertDoesNotThrow { gson.fromJson(response.content, User::class.java) }
+            }
+        }
+
+        cookiesSession {
+            with(handleRequest(HttpMethod.Post, Routes.LOGIN){
+                addHeader(HttpHeaders.ContentType, ContentType.Application.Json.toString())
+                setBody(gson.toJson(Login(mod.email, mod.password)))
+            }) {
+                assertEquals(HttpStatusCode.OK, response.status())
+                assertDoesNotThrow { gson.fromJson(response.content, User::class.java) }
+            }
+
+            with(handleRequest(HttpMethod.Delete, "${Routes.USERS}/${user.id}")) {
+                assertEquals(HttpStatusCode.Forbidden, response.status())
+                assertDoesNotThrow { gson.fromJson(response.content, Message::class.java) }
+            }
+
+            with(handleRequest(HttpMethod.Delete, "${Routes.USERS}/${user.id}")) {
+                assertEquals(HttpStatusCode.Forbidden, response.status())
+                assertDoesNotThrow { gson.fromJson(response.content, User::class.java) }
+            }
+        }
+    }
+
+    @Test
+    fun deleteUsersAsAdmin() : Unit = withTestApplication({
+        main(true)
+        users_module()
+        session_module()
+    }) {
+
     }
 }

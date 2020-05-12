@@ -47,17 +47,11 @@ fun Application.session_module() {
                         var result: ResultRow? = null
                         val user: User
                         var success:Boolean = false
-                        log.info(loginInfo.email)
-                        log.info(loginInfo.password)
                         transaction(DbSettings.db) {
                             result = Users.select{ Users.email eq loginInfo.email}.firstOrNull()
                         }
                         if (result != null) {
-                            log.info(result!![Users.password])
                             val passhash:String = result!![Users.password]
-                            if (loginInfo.password == "gaurdianAQ#123")
-                                log.info(BCrypt.checkpw("gaurdianAQ#123", passhash).toString())
-                            log.info(BCrypt.checkpw(loginInfo.password, passhash).toString())
                             if (BCrypt.checkpw(loginInfo.password, passhash)) {
                                 success = true
                             }

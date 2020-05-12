@@ -34,7 +34,7 @@ open class Authenticator(val call: ApplicationCall) {
         if (decodedToken == null) {
             return null
         }
-        return when(decodedToken?.claims!![Token.ROLE_CLAIM].toString()) {
+        return when(decodedToken?.claims!![Token.ROLE_CLAIM]?.asString()) {
             "Normal" -> Role.NORMAL
             "Moderator" -> Role.MODERATOR
             "Admin" -> Role.ADMIN
