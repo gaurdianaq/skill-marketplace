@@ -8,9 +8,9 @@ import io.ktor.routing.*
 import io.ktor.response.*
 import org.covid19support.DbSettings
 import org.covid19support.SQLState
+import org.covid19support.authentication.Authenticator
 import org.covid19support.constants.INTERNAL_ERROR
 import org.covid19support.constants.INVALID_BODY
-import org.covid19support.authentication.authenticate
 import org.covid19support.constants.Message
 import org.covid19support.modules.users.User
 import org.covid19support.modules.users.Users
@@ -23,14 +23,14 @@ fun Application.ratings_module() {
     routing {
         route("/ratings") {
             post {
-                val decodedToken: DecodedJWT? = authenticate(call)
-                if (decodedToken != null) {
+                val authenticator = Authenticator(call)
+                if (authenticator.authenticate()) {
                     try {
                         val rating: Rating = call.receive<Rating>()
                         try {
                             transaction(DbSettings.db) {
                                 Ratings.insert {
-                                    it[user_id] = decodedToken.claims["id"]!!.asInt()
+                                    it[user_id] = authenticator.getID()!!
                                     it[course_id] = rating.courseId
                                     it[rating_value] = rating.ratingValue
                                     it[comment] = rating.comment

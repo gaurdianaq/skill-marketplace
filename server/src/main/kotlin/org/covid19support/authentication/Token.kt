@@ -13,12 +13,15 @@ object Token {
     private val verifier: JWTVerifier = JWT.require(algorithm)
             .withIssuer(ISSUER)
             .build()
+    const val ID_CLAIM = "id"
+    const val EMAIL_CLAIM = "email"
+    const val ROLE_CLAIM = "role"
     fun create(id:Int, email:String, role:String): String {
         return JWT.create()
                 .withIssuer(ISSUER)
-                .withClaim("id", id)
-                .withClaim("email", email)
-                .withClaim("role", role)
+                .withClaim(ID_CLAIM, id)
+                .withClaim(EMAIL_CLAIM, email)
+                .withClaim(ROLE_CLAIM, role)
                 .sign(algorithm)
     }
 

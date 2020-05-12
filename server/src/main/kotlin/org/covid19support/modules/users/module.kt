@@ -10,16 +10,14 @@ import io.ktor.sessions.*
 import org.covid19support.DbSettings
 import org.covid19support.SQLState
 import org.covid19support.SessionAuth
-import org.covid19support.constants.INTERNAL_ERROR
-import org.covid19support.constants.INVALID_BODY
+import org.covid19support.authentication.Authenticator
+import org.covid19support.authentication.Role
 import org.jetbrains.exposed.sql.*
 import org.jetbrains.exposed.sql.transactions.*
 import org.jetbrains.exposed.exceptions.*
 import org.mindrot.jbcrypt.BCrypt
 import org.covid19support.authentication.Token
-import org.covid19support.authentication.authenticate
-import org.covid19support.constants.Message
-import org.covid19support.constants.UNAUTHORIZED
+import org.covid19support.constants.*
 import java.lang.IllegalStateException
 
 
@@ -114,17 +112,42 @@ fun Application.users_module() {
                 }
 
                 delete {
-                    val decodedToken: DecodedJWT? = authenticate(call)
-                    if (decodedToken != null) {
-                        try {
-                            val id: Int? = call.parameters["id"]!!.toIntOrNull()
-                            transaction(DbSettings.db) {
-                                Users.deleteWhere { Users.id eq id }
+                    val authenticator = Authenticator(call)
+                    if (authenticator.authenticate()) {
+                        if (authenticator.authorize(Role.NORMAL)) {
+                            val id:Int? = call.parameters["id"]!!.toIntOrNull()
+                            if (id != null)
+                            {
+                                try {
+                                    var canDelete = false
+                                    if (authenticator.getRole()!! > Role.NORMAL)
+                                    {
+                                        canDelete = true
+                                    }
+                                    else if (id == authenticator.getID()) {
+                                        canDelete = true
+                                    }
+                                    if (canDelete) {
+                                        transaction(DbSettings.db) {
+                                            Users.deleteWhere { Users.id eq id }
+                                        }
+                                        call.respond(HttpStatusCode.OK, DELETED)
+                                    }
+                                    else {
+                                        call.respond(HttpStatusCode.Forbidden, FORBIDDEN)
+                                    }
+
+                                }
+                                catch (ex:ExposedSQLException) {
+
+                                }
                             }
-                        }
-                        catch (ex:ExposedSQLException) {
+                            else {
+                                call.respond(HttpStatusCode.BadRequest, Message("Must pass an integer value!"))
+                            }
 
                         }
+
                     }
                     else {
                         call.respond(HttpStatusCode.Unauthorized, Message(UNAUTHORIZED))

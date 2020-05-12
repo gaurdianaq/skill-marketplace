@@ -8,9 +8,9 @@ import io.ktor.routing.*
 import io.ktor.response.*
 import org.covid19support.DbSettings
 import org.covid19support.SQLState
+import org.covid19support.authentication.Authenticator
 import org.covid19support.constants.INTERNAL_ERROR
 import org.covid19support.constants.INVALID_BODY
-import org.covid19support.authentication.authenticate
 import org.covid19support.constants.Message
 import org.covid19support.modules.ratings.Rating
 import org.covid19support.modules.ratings.Ratings
@@ -102,8 +102,8 @@ fun Application.courses_module() {
                 }
             }
             post {
-                val decodedToken: DecodedJWT? = authenticate(call)
-                if (decodedToken != null) {
+                val authenticator = Authenticator(call)
+                if (authenticator.authenticate()) {
                     try {
                         val course: Course = call.receive<Course>()
                         try {
@@ -111,7 +111,7 @@ fun Application.courses_module() {
                                 Courses.insert {
                                     it[name] = course.name
                                     it[description] = course.description
-                                    it[instructor_id] = decodedToken.claims["id"]!!.asInt()
+                                    it[instructor_id] = authenticator.getID()!!
                                     it[category] = course.category
                                     it[rate] = course.rate
                                 }
@@ -156,11 +156,11 @@ fun Application.courses_module() {
 
             route("/instructor") {
                 get {
-                    val decodedToken: DecodedJWT? = authenticate(call)
-                    if (decodedToken != null) {
+                    val authenticator = Authenticator(call)
+                    if (authenticator.authenticate()) {
                         val courses: ArrayList<Course> = arrayListOf()
                         transaction(DbSettings.db) {
-                            val results: List<ResultRow> = Courses.select { Courses.instructor_id eq decodedToken.claims["id"]!!.asInt() }.toList()
+                            val results: List<ResultRow> = Courses.select { Courses.instructor_id eq authenticator.getID()!! }.toList()
                             results.forEach {
                                 courses.add(Courses.toCourse(it))
                             }

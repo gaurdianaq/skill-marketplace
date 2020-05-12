@@ -8,7 +8,7 @@ import io.ktor.response.*
 import io.ktor.routing.*
 import org.covid19support.DbSettings
 import org.covid19support.SQLState
-import org.covid19support.authentication.authenticate
+import org.covid19support.authentication.Authenticator
 import org.covid19support.constants.INTERNAL_ERROR
 import org.covid19support.constants.INVALID_BODY
 import org.covid19support.constants.Message
@@ -36,15 +36,15 @@ fun Application.contactInfo_module() {
                 }
             }
             post {
-                val decodedToken: DecodedJWT? = authenticate(call)
-                if (decodedToken != null) {
+                val authenticator = Authenticator(call)
+                if (authenticator.authenticate()) {
                     try {
                         val newContactInfo: ContactInfo = call.receive<ContactInfo>()
                         var id:Int = -1
                         try {
                             transaction(DbSettings.db) {
                                 ContactInfoTable.insert {
-                                    it[user_id] = decodedToken.claims["id"]!!.asInt()
+                                    it[user_id] = authenticator.getID()!!
                                     it[contact_method] = newContactInfo.contactMethod
                                     it[contact_info] = newContactInfo.contactInfo
                                 }

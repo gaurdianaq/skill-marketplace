@@ -24,11 +24,11 @@ fun Application.session_module() {
         route("/session") {
             route("/authenticate") {
                 get {
-                    val decodedToken: DecodedJWT? = authenticate(call)
-                    if (decodedToken != null) {
+                    val authenticator = Authenticator(call)
+                    if (authenticator.authenticate()) {
                         var result: ResultRow? = null
                         transaction(DbSettings.db) {
-                            result = Users.select { Users.id eq decodedToken.claims["id"]!!.asInt() }.firstOrNull()
+                            result = Users.select { Users.id eq authenticator.getID() }.firstOrNull()
                         }
                         if (result != null) {
                             val user: User = Users.toUser(result!!)

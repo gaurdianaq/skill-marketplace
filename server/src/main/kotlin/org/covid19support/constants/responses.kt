@@ -6,5 +6,6 @@ const val AUTHORIZED = "You're authorized!"
 const val UNAUTHORIZED = "You need to login!"
 const val INVALID_BODY = "Invalid body provided!"
 const val INTERNAL_ERROR = "Oh no... Something went wrong!"
+const val DELETED = "DELETED!!!"
 
 data class Message(val message: String)
