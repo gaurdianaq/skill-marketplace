@@ -25,9 +25,8 @@ class TestUsers : BaseTest() {
     //TODO Edit User
     //TODO Edit User Unauthenticated
     //TODO Edit User Unauthorized
-    //TODO Delete User
-    //TODO Delete User Unauthenticated
-    //TODO Delete User Unauthorized
+    //TODO Delete User Does Not Exist
+
 
     @Test
     fun addUsers() : Unit = withTestApplication({
@@ -330,6 +329,66 @@ class TestUsers : BaseTest() {
         users_module()
         session_module()
     }) {
+        val admin = User(null, "admin@admin.org", "password", "Admin", "McBoss", null, role = "Admin")
+        val users = arrayOf(
+                User(null, "test1@test.org", "password", "Test", "Test", null),
+                User(null, "test2@test.org", "password", "Test", "Test", null),
+                User(null, "test3@test.org", "password", "Test", "Test", null)
+        )
+        transaction(DbSettings.db) {
+            Users.insertUser(admin)
+            for (user in users) {
+                user.id = Users.insertUserAndGetId(user)
+            }
+        }
 
+        cookiesSession {
+            with(handleRequest(HttpMethod.Post, Routes.LOGIN){
+                addHeader(HttpHeaders.ContentType, ContentType.Application.Json.toString())
+                setBody(gson.toJson(Login(admin.email, admin.password)))
+            }) {
+                assertEquals(HttpStatusCode.OK, response.status())
+                assertDoesNotThrow { gson.fromJson(response.content, User::class.java) }
+            }
+
+            for (user in users) {
+                with(handleRequest(HttpMethod.Delete, "${Routes.USERS}/${user.id}")) {
+                    assertEquals(HttpStatusCode.OK, response.status())
+                    assertDoesNotThrow { gson.fromJson(response.content, Message::class.java) }
+                    assertNotNull(sessions.get<SessionAuth>())
+                }
+                with(handleRequest(HttpMethod.Get, "${Routes.USERS}/${user.id}")) {
+                    assertEquals(HttpStatusCode.NoContent, response.status())
+                    assertDoesNotThrow { gson.fromJson(response.content, Message::class.java) }
+                }
+            }
+        }
     }
+
+    /*
+    @Test
+    fun deleteUserDoesNotExist() : Unit = withTestApplication({
+        main(true)
+        users_module()
+        session_module()
+    }) {
+        val admin = User(null, "admin@admin.org", "password", "Admin", "McBoss", null, role = "Admin")
+        transaction(DbSettings.db) {
+            admin.id = Users.insertUserAndGetId(admin)
+        }
+        cookiesSession {
+            with(handleRequest(HttpMethod.Post, Routes.LOGIN){
+                addHeader(HttpHeaders.ContentType, ContentType.Application.Json.toString())
+                setBody(gson.toJson(Login(admin.email, admin.password)))
+            }) {
+                assertEquals(HttpStatusCode.OK, response.status())
+                assertDoesNotThrow { gson.fromJson(response.content, User::class.java) }
+            }
+            val badid = admin.id!! + 1
+            with(handleRequest(HttpMethod.Delete, "${Routes.USERS}/${(badid)}")) {
+                assertEquals(HttpStatusCode.BadRequest, response.status())
+                assertDoesNotThrow { gson.fromJson(response.content, Message::class.java) }
+            }
+        }
+    }*/
 }

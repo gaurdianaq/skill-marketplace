@@ -20,6 +20,8 @@ import org.covid19support.authentication.Token
 import org.covid19support.constants.*
 import java.lang.IllegalStateException
 
+//TODO Investigate What errors can be thrown on delete
+//TODO Investigate how to check when a delete fails
 
 fun Application.users_module() {
     routing {
@@ -142,6 +144,7 @@ fun Application.users_module() {
                                 }
                                 catch (ex:ExposedSQLException) {
                                     log.error(ex.message)
+                                    call.respond(HttpStatusCode.BadRequest, Message("Something went wrong, will implement more detailed response later."))
                                 }
                             }
                             else {
