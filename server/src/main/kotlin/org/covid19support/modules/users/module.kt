@@ -130,13 +130,20 @@ fun Application.users_module() {
                                         canDelete = true
                                     }
                                     if (canDelete) {
+                                        var deleteResult: Int = 0
                                         transaction(DbSettings.db) {
-                                            Users.deleteWhere { Users.id eq id }
+                                            deleteResult = Users.deleteWhere { Users.id eq id }
                                         }
-                                        if (id == authenticator.getID()) {
-                                            call.sessions.clear<SessionAuth>()
+                                        if (deleteResult == 1) {
+                                            if (id == authenticator.getID()) {
+                                                call.sessions.clear<SessionAuth>()
+                                            }
+                                            call.respond(HttpStatusCode.OK, Message(DELETED))
                                         }
-                                        call.respond(HttpStatusCode.OK, Message(DELETED))
+                                        else if (deleteResult == 0) {
+                                            call.respond(HttpStatusCode.BadRequest, Message("User was not deleted, likely cause was it did not exist in the first place."))
+                                        }
+
                                     }
                                     else {
                                         call.respond(HttpStatusCode.Forbidden, Message(FORBIDDEN))

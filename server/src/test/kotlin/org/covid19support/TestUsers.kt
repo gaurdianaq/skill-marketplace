@@ -365,7 +365,6 @@ class TestUsers : BaseTest() {
         }
     }
 
-    /*
     @Test
     fun deleteUserDoesNotExist() : Unit = withTestApplication({
         main(true)
@@ -384,11 +383,10 @@ class TestUsers : BaseTest() {
                 assertEquals(HttpStatusCode.OK, response.status())
                 assertDoesNotThrow { gson.fromJson(response.content, User::class.java) }
             }
-            val badid = admin.id!! + 1
-            with(handleRequest(HttpMethod.Delete, "${Routes.USERS}/${(badid)}")) {
+            with(handleRequest(HttpMethod.Delete, "${Routes.USERS}/${(admin.id!!+1)}")) {
                 assertEquals(HttpStatusCode.BadRequest, response.status())
                 assertDoesNotThrow { gson.fromJson(response.content, Message::class.java) }
             }
         }
-    }*/
+    }
 }
