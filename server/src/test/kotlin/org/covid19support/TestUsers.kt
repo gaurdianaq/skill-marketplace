@@ -22,9 +22,6 @@ class TestUsers : BaseTest() {
     //TODO Register logs user in
     //TODO Add Users Text Too Long
     //TODO Invalid Email & Password (once validation is added)
-    //TODO Edit User
-    //TODO Edit User Unauthenticated
-    //TODO Edit User Unauthorized
     //TODO Delete User Does Not Exist
 
 
@@ -386,6 +383,292 @@ class TestUsers : BaseTest() {
             with(handleRequest(HttpMethod.Delete, "${Routes.USERS}/${(admin.id!!+1)}")) {
                 assertEquals(HttpStatusCode.BadRequest, response.status())
                 assertDoesNotThrow { gson.fromJson(response.content, Message::class.java) }
+            }
+        }
+    }
+
+    @Test
+    fun editSelf() : Unit = withTestApplication({
+        main(true)
+        users_module()
+        session_module()
+    }) {
+        val user = User(null, "struggling@life.com", "gottakeeppushing", "Frustrated", "JobSeeker", null)
+        var editUserMessage = JsonObject()
+        cookiesSession {
+            with(handleRequest(HttpMethod.Post, Routes.USERS) {
+                addHeader(HttpHeaders.ContentType, ContentType.Application.Json.toString())
+                setBody(gson.toJson(user))
+            }) {
+                assertEquals(HttpStatusCode.Created, response.status())
+                assertDoesNotThrow { gson.fromJson(response.content, User::class.java) }
+                user.id = gson.fromJson(response.content, User::class.java).id
+                assertNotNull(sessions.get<SessionAuth>())
+            }
+            editUserMessage.addProperty("firstName", "NotFrustrated")
+            editUserMessage.addProperty("lastName", "Cheeseman")
+
+            with(handleRequest(HttpMethod.Patch, "${Routes.USERS}/${user.id}") {
+                addHeader(HttpHeaders.ContentType, ContentType.Application.Json.toString())
+                setBody(gson.toJson(editUserMessage))
+            }) {
+                assertEquals(HttpStatusCode.OK, response.status())
+                assertDoesNotThrow { gson.fromJson(response.content, Message::class.java) }
+            }
+
+            with(handleRequest(HttpMethod.Get, "${Routes.USERS}/${user.id}")) {
+                assertEquals(HttpStatusCode.OK, response.status())
+                assertDoesNotThrow { gson.fromJson(response.content, User::class.java) }
+                val editedUser = gson.fromJson(response.content, User::class.java)
+                assertEquals("NotFrustrated", editedUser.firstName)
+                assertEquals("Cheeseman", editedUser.lastName)
+                assertEquals(user.email, editedUser.email)
+                assertEquals(user.description, editedUser.description)
+                assertEquals(user.isInstructor, editedUser.isInstructor)
+                assertEquals(user.role, editedUser.role)
+            }
+
+            editUserMessage = JsonObject()
+            editUserMessage.addProperty("email", "cheeseman@cheesey.org")
+            editUserMessage.addProperty("password", "spiceisright")
+
+            with(handleRequest(HttpMethod.Patch, "${Routes.USERS}/${user.id}"){
+                addHeader(HttpHeaders.ContentType, ContentType.Application.Json.toString())
+                setBody(gson.toJson(editUserMessage))
+            }) {
+                assertEquals(HttpStatusCode.OK, response.status())
+                assertDoesNotThrow { gson.fromJson(response.content, Message::class.java) }
+            }
+        }
+
+        cookiesSession {
+            with(handleRequest(HttpMethod.Post, Routes.LOGIN){
+                addHeader(HttpHeaders.ContentType, ContentType.Application.Json.toString())
+                setBody(gson.toJson(Login(user.email, user.password)))
+            }) {
+                assertEquals(HttpStatusCode.BadRequest, response.status())
+                assertDoesNotThrow { gson.fromJson(response.content, Message::class.java) }
+                assertNull(sessions.get<SessionAuth>())
+            }
+
+            with(handleRequest(HttpMethod.Post, Routes.LOGIN){
+                addHeader(HttpHeaders.ContentType, ContentType.Application.Json.toString())
+                setBody(gson.toJson(Login("cheeseman@cheesey.org", "spiceisright")))
+            }) {
+                assertEquals(HttpStatusCode.OK, response.status())
+                assertDoesNotThrow { gson.fromJson(response.content, User::class.java) }
+                assertNotNull(sessions.get<SessionAuth>())
+                val editedUser = gson.fromJson(response.content, User::class.java)
+                assertEquals("NotFrustrated", editedUser.firstName)
+                assertEquals("Cheeseman", editedUser.lastName)
+                assertEquals(user.description, editedUser.description)
+                assertEquals(user.isInstructor, editedUser.isInstructor)
+                assertEquals(user.role, editedUser.role)
+            }
+
+            editUserMessage = JsonObject()
+            editUserMessage.addProperty("firstName", "Goulda")
+            editUserMessage.addProperty("description", "The cheesiest man you'll ever meet, you've been warned...")
+            editUserMessage.addProperty("isInstructor", true)
+
+            with(handleRequest(HttpMethod.Patch, "${Routes.USERS}/${user.id}"){
+                addHeader(HttpHeaders.ContentType, ContentType.Application.Json.toString())
+                setBody(gson.toJson(editUserMessage))
+            }) {
+                assertEquals(HttpStatusCode.OK, response.status())
+                assertDoesNotThrow { gson.fromJson(response.content, Message::class.java) }
+            }
+
+            with(handleRequest(HttpMethod.Get, "${Routes.USERS}/${user.id}")) {
+                assertEquals(HttpStatusCode.OK, response.status())
+                assertDoesNotThrow { gson.fromJson(response.content, User::class.java) }
+                val editedUser = gson.fromJson(response.content, User::class.java)
+                assertEquals("cheeseman@cheesey.org", editedUser.email)
+                assertEquals("Goulda", editedUser.firstName)
+                assertEquals("Cheeseman", editedUser.lastName)
+                assertTrue(editedUser.isInstructor!!)
+                assertEquals("The cheesiest man you'll ever meet, you've been warned...", editedUser.description)
+                assertEquals(user.role, editedUser.role)
+            }
+        }
+    }
+
+    @Test
+    fun editUserUnauthenticated() : Unit = withTestApplication({
+        main(true)
+        users_module()
+    }) {
+        val user = User(null, "lamb@korma.ca", "notspicy", "Lamb", "Korma", "Tasty food!")
+        with(handleRequest(HttpMethod.Post, Routes.USERS){
+            addHeader(HttpHeaders.ContentType, ContentType.Application.Json.toString())
+            setBody(gson.toJson(user))
+        }) {
+            assertEquals(HttpStatusCode.Created, response.status())
+            assertDoesNotThrow { gson.fromJson(response.content, User::class.java) }
+            user.id = gson.fromJson(response.content, User::class.java).id
+        }
+        val editUserMessage = JsonObject()
+        editUserMessage.addProperty("firstName", "Chicken")
+        editUserMessage.addProperty("lastName", "Vindaloo")
+        with(handleRequest(HttpMethod.Patch, "${Routes.USERS}/${user.id}"){
+            addHeader(HttpHeaders.ContentType, ContentType.Application.Json.toString())
+            setBody(gson.toJson(editUserMessage))
+        }) {
+            assertEquals(HttpStatusCode.Unauthorized, response.status())
+            assertDoesNotThrow { gson.fromJson(response.content, Message::class.java) }
+        }
+
+        with(handleRequest(HttpMethod.Get, "${Routes.USERS}/${user.id}")) {
+            assertEquals(HttpStatusCode.OK, response.status())
+            assertDoesNotThrow { gson.fromJson(response.content, User::class.java) }
+            val retrievedUser = gson.fromJson(response.content, User::class.java)
+            assertEquals(user.email, retrievedUser.email)
+            assertEquals(user.firstName, retrievedUser.firstName)
+            assertEquals(user.lastName, retrievedUser.lastName)
+            assertEquals(user.isInstructor, retrievedUser.isInstructor)
+            assertEquals(user.role, retrievedUser.role)
+            assertEquals(user.description, retrievedUser.description)
+        }
+    }
+
+    @Test
+    fun editUserUnauthorized() : Unit = withTestApplication({
+        main(true)
+        users_module()
+        session_module()
+    }) {
+        val users = arrayOf(
+                User(null, "user1@users.org", "password", "User1", "McUser", null),
+                User(null, "user2@users.org", "password", "User2", "McUser", null),
+                User(null, "user3@users.org", "password", "User3", "McUser", null),
+                User(null, "user4@users.org", "password", "User4", "McUser", null),
+                User(null, "user5@users.org", "password", "User5", "McUser", null)
+        )
+
+        transaction(DbSettings.db) {
+            for (user in users) {
+                user.id = Users.insertUserAndGetId(user)
+            }
+        }
+
+        cookiesSession {
+            with(handleRequest(HttpMethod.Post, Routes.LOGIN){
+                addHeader(HttpHeaders.ContentType, ContentType.Application.Json.toString())
+                setBody(gson.toJson(Login(users[0].email, users[1].password)))
+            }) {
+                assertEquals(HttpStatusCode.OK, response.status())
+                assertDoesNotThrow { gson.fromJson(response.content, User::class.java) }
+            }
+            val editUserMessage = JsonObject()
+            editUserMessage.addProperty("firstName", "Dork!")
+            for (i in 1 .. 4) {
+                with(handleRequest(HttpMethod.Patch, "${Routes.USERS}/${users[i].id}"){
+                    addHeader(HttpHeaders.ContentType, ContentType.Application.Json.toString())
+                    setBody(gson.toJson(editUserMessage))
+                }) {
+                    assertEquals(HttpStatusCode.Forbidden, response.status())
+                    assertDoesNotThrow { gson.fromJson(response.content, Message::class.java) }
+                }
+                with(handleRequest(HttpMethod.Get, "${Routes.USERS}/${users[i].id}")) {
+                    assertEquals(HttpStatusCode.OK, response.status())
+                    assertDoesNotThrow { gson.fromJson(response.content, User::class.java) }
+                    val retrievedUser = gson.fromJson(response.content, User::class.java)
+                    assertEquals(users[i].email, retrievedUser.email)
+                    assertEquals(users[i].firstName, retrievedUser.firstName)
+                    assertEquals(users[i].lastName, retrievedUser.lastName)
+                    assertEquals(users[i].isInstructor, retrievedUser.isInstructor)
+                    assertEquals(users[i].role, retrievedUser.role)
+                    assertEquals(users[i].description, retrievedUser.description)
+                }
+            }
+        }
+    }
+
+    @Test
+    fun editUsersAsAdmin() : Unit = withTestApplication({
+        main(true)
+        users_module()
+        session_module()
+    }) {
+        val admin = User(null, "admin@admin.org", "password", "Admin", "McBoss", null, role = "Admin")
+        val users = arrayOf(
+                User(null, "test1@test.org", "password", "Test", "Test", null),
+                User(null, "test2@test.org", "password", "Test", "Test", null),
+                User(null, "test3@test.org", "password", "Test", "Test", null)
+        )
+        val editMessages = arrayOf(
+                JsonObject(), JsonObject(), JsonObject()
+        )
+
+        editMessages[0].addProperty("email", "cheddarman@test.org")
+        editMessages[1].addProperty("email", "gouldaman@test.org")
+        editMessages[2].addProperty("email", "havartiman@test.org")
+        transaction(DbSettings.db) {
+            Users.insertUser(admin)
+            for (user in users) {
+                user.id = Users.insertUserAndGetId(user)
+            }
+        }
+
+        cookiesSession {
+            with(handleRequest(HttpMethod.Post, Routes.LOGIN){
+                addHeader(HttpHeaders.ContentType, ContentType.Application.Json.toString())
+                setBody(gson.toJson(Login(admin.email, admin.password)))
+            }) {
+                assertEquals(HttpStatusCode.OK, response.status())
+                assertDoesNotThrow { gson.fromJson(response.content, User::class.java) }
+            }
+
+
+            for (i in 0 .. 2) {
+                with(handleRequest(HttpMethod.Patch, "${Routes.USERS}/${users[i].id}"){
+                    addHeader(HttpHeaders.ContentType, ContentType.Application.Json.toString())
+                    setBody(gson.toJson(editMessages[i]))
+                }) {
+                    assertEquals(HttpStatusCode.OK, response.status())
+                    assertDoesNotThrow { gson.fromJson(response.content, Message::class.java) }
+                }
+                with(handleRequest(HttpMethod.Get, "${Routes.USERS}/${users[i].id}")) {
+                    assertEquals(HttpStatusCode.OK, response.status())
+                    assertDoesNotThrow { gson.fromJson(response.content, User::class.java) }
+                    val fetchedUser = gson.fromJson(response.content, User::class.java)
+                    assertEquals(editMessages[i]["email"].asString, fetchedUser.email)
+                }
+            }
+        }
+    }
+
+    @Test
+    fun editUsersBadData(): Unit = withTestApplication({
+        main(true)
+        users_module()
+    }) {
+        val user = User(null, "cheeseman@cheesey.ca", "cheddahgouldahavartibleu", "Goulda", "Cheddar", null)
+        val editMessage = JsonObject()
+        editMessage.addProperty("notavalidfield", "somedata")
+        editMessage.addProperty("anotherinavlidfield", 5)
+        val subObject = JsonObject()
+        subObject.addProperty("firstName", "cheese")
+        editMessage.add("subobject", subObject)
+        val firstNameSubObject = JsonObject()
+        firstNameSubObject.addProperty("cheese", "goulda")
+        editMessage.add("firstName", firstNameSubObject)
+        cookiesSession {
+            with(handleRequest(HttpMethod.Post, Routes.USERS){
+                addHeader(HttpHeaders.ContentType, ContentType.Application.Json.toString())
+                setBody(gson.toJson(user))
+            }) {
+                assertEquals(HttpStatusCode.Created, response.status())
+                assertDoesNotThrow { gson.fromJson(response.content, User::class.java) }
+                assertNotNull(sessions.get<SessionAuth>())
+                user.id = gson.fromJson(response.content, User::class.java).id
+            }
+            with(handleRequest(HttpMethod.Patch, "${Routes.USERS}/${user.id}"){
+                addHeader(HttpHeaders.ContentType, ContentType.Application.Json.toString())
+                setBody(gson.toJson(editMessage))
+            }) {
+                assertEquals(HttpStatusCode.BadRequest, response.status())
+                assertDoesNotThrow { gson.fromJson(response.content, Message::class.java)}
             }
         }
     }

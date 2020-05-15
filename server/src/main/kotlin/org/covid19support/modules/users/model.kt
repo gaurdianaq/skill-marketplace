@@ -18,7 +18,7 @@ data class User(
         val firstName: String,
         val lastName: String,
         val description: String?,
-        val isInstructor: Boolean = false,
+        val isInstructor: Boolean? = false,
         val role: String = "Normal"
 )
 
@@ -55,7 +55,7 @@ object Users : IntIdTable("users") {
             it[first_name] = user.firstName
             it[last_name] = user.lastName
             it[description] = user.description
-            it[is_instructor] = user.isInstructor
+            it[is_instructor] = user.isInstructor!!
             it[role] = user.role
         }.value
     }
@@ -69,7 +69,7 @@ object Users : IntIdTable("users") {
             it[first_name] = user.firstName
             it[last_name] = user.lastName
             it[description] = user.description
-            it[is_instructor] = user.isInstructor
+            it[is_instructor] = user.isInstructor!!
             it[role] = user.role
         }
     }

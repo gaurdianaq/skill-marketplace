@@ -1,6 +1,7 @@
 package org.covid19support.modules.users
 
 import com.auth0.jwt.interfaces.DecodedJWT
+import com.google.gson.JsonSyntaxException
 import io.ktor.application.*
 import io.ktor.http.HttpStatusCode
 import io.ktor.request.receive
@@ -20,8 +21,10 @@ import org.covid19support.authentication.Token
 import org.covid19support.constants.*
 import java.lang.IllegalStateException
 
-//TODO Investigate What errors can be thrown on delete
-//TODO Investigate how to check when a delete fails
+//TODO Lookup how to cancel a transaction (or perhaps just check before the transaction if role is being changed)
+//TODO Logout user on email or role change (or at least, delete the old token and create a new one
+//TODO Edit User overwrites isInstructor to false if nothing is provided
+//TODO invalid data check doesn't work the way I thought I did... the invalid state exception was being thrown on the insert rather than the receive command
 
 fun Application.users_module() {
     routing {
@@ -110,7 +113,74 @@ fun Application.users_module() {
                 }
 
                 patch {
+                    val authenticator = Authenticator(call)
+                    if (authenticator.authenticate()) {
+                        if (authenticator.authorize(Role.NORMAL)) {
+                            val id:Int? = call.parameters["id"]!!.toIntOrNull()
+                            if (id != null) {
+                                try {
+                                    val userInfo: User = call.receive()
+                                    var canEdit = false
+                                    if (authenticator.getRole()!! > Role.MODERATOR) {
+                                        canEdit = true
+                                    }
+                                    else if (id == authenticator.getID()) {
+                                        canEdit = true
+                                    }
+                                    if (canEdit) {
+                                        var result = 0
+                                        transaction(DbSettings.db) {
+                                            result = Users.update({Users.id eq id}) {
+                                                if (userInfo.email != null) {
+                                                    it[email] = userInfo.email
+                                                }
+                                                if (userInfo.password != null) {
+                                                    it[password] = BCrypt.hashpw(userInfo.password, BCrypt.gensalt())
+                                                }
+                                                if (userInfo.firstName != null) {
+                                                    it[first_name] = userInfo.firstName
+                                                }
+                                                if (userInfo.lastName != null) {
+                                                    it[last_name] = userInfo.lastName
+                                                }
+                                                if (userInfo.description != null) {
+                                                    it[description] = userInfo.description
+                                                }
+                                                if (userInfo.isInstructor != null) {
+                                                    it[is_instructor] = userInfo.isInstructor
+                                                }
 
+                                                if (userInfo.role != null) {
+                                                    it[role] = userInfo.role
+                                                }
+                                            }
+                                        }
+                                        if (result == 1) {
+                                            call.respond(HttpStatusCode.OK, Message("Successfully updated user!"))
+                                        }
+                                        else {
+                                            call.respond(HttpStatusCode.BadRequest, Message("User does not exist or no data was provided to update!"))
+                                        }
+
+                                    }
+                                    else {
+                                        call.respond(HttpStatusCode.Forbidden, Message(FORBIDDEN))
+                                    }
+                                }
+                                catch (ex:ExposedSQLException) {
+                                    log.error(ex.message)
+                                    call.respond(HttpStatusCode.BadRequest, Message("Database Error"))
+                                }
+                                catch (ex:JsonSyntaxException) {
+                                    log.error(ex.message)
+                                    call.respond(HttpStatusCode.BadRequest, Message("Invalid data type"))
+                                }
+                            }
+                            else {
+                                call.respond(HttpStatusCode.BadRequest, Message("Must pass an integer value!"))
+                            }
+                        }
+                    }
                 }
 
                 delete {
@@ -118,8 +188,7 @@ fun Application.users_module() {
                     if (authenticator.authenticate()) {
                         if (authenticator.authorize(Role.NORMAL)) {
                             val id:Int? = call.parameters["id"]!!.toIntOrNull()
-                            if (id != null)
-                            {
+                            if (id != null) {
                                 try {
                                     var canDelete = false
                                     if (authenticator.getRole()!! > Role.MODERATOR)
