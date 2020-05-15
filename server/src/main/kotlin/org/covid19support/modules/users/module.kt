@@ -1,6 +1,5 @@
 package org.covid19support.modules.users
 
-import com.auth0.jwt.interfaces.DecodedJWT
 import com.google.gson.JsonSyntaxException
 import io.ktor.application.*
 import io.ktor.http.HttpStatusCode
@@ -59,19 +58,39 @@ fun Application.users_module() {
                     var id:Int = -1
                     log.info(newUser.toString())
                     try {
-                        val passhash = BCrypt.hashpw(newUser.password, BCrypt.gensalt())
-                        transaction (DbSettings.db) {
-                            id = Users.insertAndGetId {
-                                it[email] = newUser.email
-                                it[password] = passhash
-                                it[first_name] = newUser.firstName
-                                it[last_name] = newUser.lastName
-                                it[description] = newUser.description
-                            }.value
+                        var canAdd = true
+                        var addingPrivilegedUser = false
+                        if (newUser.role != "Normal" && newUser.role != null) {
+                            val authenticator = Authenticator(call)
+                            if (authenticator.authenticate()) {
+                                if (authenticator.authorize(Role.ADMIN)) {
+                                    addingPrivilegedUser = true
+                                }
+                                else {
+                                    canAdd = false
+                                }
+                            }
+                            else {
+                                canAdd = false
+                            }
                         }
-                        newUser.id = id
-                        call.sessions.set(SessionAuth(Token.create(id, newUser.email, newUser.role)))
-                        call.respond(HttpStatusCode.Created, newUser)
+                        if (canAdd) {
+                            val passhash = BCrypt.hashpw(newUser.password, BCrypt.gensalt())
+                            transaction (DbSettings.db) {
+                                id = Users.insertAndGetId {
+                                    it[email] = newUser.email
+                                    it[password] = passhash
+                                    it[first_name] = newUser.firstName
+                                    it[last_name] = newUser.lastName
+                                    it[description] = newUser.description
+                                }.value
+                            }
+                            newUser.id = id
+                            if (!addingPrivilegedUser) {
+                                call.sessions.set(SessionAuth(Token.create(id, newUser.email, newUser.role)))
+                            }
+                            call.respond(HttpStatusCode.Created, newUser)
+                        }
                     }
                     catch (ex:ExposedSQLException) {
                         log.error(ex.message)
