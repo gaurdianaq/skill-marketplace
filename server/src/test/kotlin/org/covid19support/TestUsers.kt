@@ -536,7 +536,7 @@ class TestUsers : BaseTest() {
         session_module()
     }) {
         val users = arrayOf(
-                User(null, "user1@users.org", "password", "User1", "McUser", null),
+                User(null, "user1@users.org", "password", "User1", "McUser", null, role = "Moderator"),
                 User(null, "user2@users.org", "password", "User2", "McUser", null),
                 User(null, "user3@users.org", "password", "User3", "McUser", null),
                 User(null, "user4@users.org", "password", "User4", "McUser", null),
@@ -672,7 +672,7 @@ class TestUsers : BaseTest() {
     }
 
     @Test
-    fun editUserInvalidFields(): Unit = withTestApplication({
+    fun editUserNoValidFields(): Unit = withTestApplication({
         main(true)
         users_module()
     }) {
