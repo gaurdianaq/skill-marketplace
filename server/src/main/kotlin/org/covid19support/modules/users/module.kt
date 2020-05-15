@@ -60,7 +60,7 @@ fun Application.users_module() {
                     try {
                         var canAdd = true
                         var addingPrivilegedUser = false
-                        if (newUser.role != "Normal" && newUser.role != null) {
+                        if (newUser.role != Role.NORMAL.value && newUser.role != null) {
                             val authenticator = Authenticator(call)
                             if (authenticator.authenticate()) {
                                 if (authenticator.authorize(Role.ADMIN)) {
@@ -149,7 +149,9 @@ fun Application.users_module() {
                                         canEdit = true
                                     }
                                     else if (id == authenticator.getID()) {
-                                        canEdit = true
+                                        if (userInfo.role == null || userInfo.role == Role.NORMAL.value) {
+                                            canEdit = true
+                                        }
                                     }
                                     if (canEdit) {
                                         var result = 0

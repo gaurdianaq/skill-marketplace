@@ -6,6 +6,7 @@ import io.ktor.http.*
 import io.ktor.server.testing.*
 import io.ktor.sessions.get
 import io.ktor.sessions.sessions
+import org.covid19support.authentication.Role
 import org.covid19support.constants.Message
 import org.covid19support.modules.session.Login
 import org.covid19support.modules.session.session_module
@@ -270,7 +271,7 @@ class TestUsers : BaseTest() {
         session_module()
     }) {
         val user = User(null, "user@user.org", "password", "User", "McUser", null)
-        val mod = User(null, "mod@mod.org", "password", "Mod", "McMod", null, role = "Moderator")
+        val mod = User(null, "mod@mod.org", "password", "Mod", "McMod", null, role = Role.MODERATOR.value)
 
         transaction(DbSettings.db) {
             user.id = Users.insertUserAndGetId(user)
@@ -324,7 +325,7 @@ class TestUsers : BaseTest() {
         users_module()
         session_module()
     }) {
-        val admin = User(null, "admin@admin.org", "password", "Admin", "McBoss", null, role = "Admin")
+        val admin = User(null, "admin@admin.org", "password", "Admin", "McBoss", null, role = Role.ADMIN.value)
         val users = arrayOf(
                 User(null, "test1@test.org", "password", "Test", "Test", null),
                 User(null, "test2@test.org", "password", "Test", "Test", null),
@@ -366,7 +367,7 @@ class TestUsers : BaseTest() {
         users_module()
         session_module()
     }) {
-        val admin = User(null, "admin@admin.org", "password", "Admin", "McBoss", null, role = "Admin")
+        val admin = User(null, "admin@admin.org", "password", "Admin", "McBoss", null, role = Role.ADMIN.value)
         transaction(DbSettings.db) {
             admin.id = Users.insertUserAndGetId(admin)
         }
@@ -536,7 +537,7 @@ class TestUsers : BaseTest() {
         session_module()
     }) {
         val users = arrayOf(
-                User(null, "user1@users.org", "password", "User1", "McUser", null, role = "Moderator"),
+                User(null, "user1@users.org", "password", "User1", "McUser", null, role = Role.MODERATOR.value),
                 User(null, "user2@users.org", "password", "User2", "McUser", null),
                 User(null, "user3@users.org", "password", "User3", "McUser", null),
                 User(null, "user4@users.org", "password", "User4", "McUser", null),
@@ -588,7 +589,7 @@ class TestUsers : BaseTest() {
         users_module()
         session_module()
     }) {
-        val admin = User(null, "admin@admin.org", "password", "Admin", "McBoss", null, role = "Admin")
+        val admin = User(null, "admin@admin.org", "password", "Admin", "McBoss", null, role = Role.ADMIN.value)
         val users = arrayOf(
                 User(null, "test1@test.org", "password", "Test", "Test", null),
                 User(null, "test2@test.org", "password", "Test", "Test", null),
