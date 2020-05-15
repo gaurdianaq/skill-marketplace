@@ -10,16 +10,18 @@ import io.ktor.sessions.*
 import org.covid19support.DbSettings
 import org.covid19support.SQLState
 import org.covid19support.SessionAuth
-import org.covid19support.constants.INTERNAL_ERROR
-import org.covid19support.constants.INVALID_BODY
+import org.covid19support.authentication.Authenticator
+import org.covid19support.authentication.Role
 import org.jetbrains.exposed.sql.*
 import org.jetbrains.exposed.sql.transactions.*
 import org.jetbrains.exposed.exceptions.*
 import org.mindrot.jbcrypt.BCrypt
 import org.covid19support.authentication.Token
-import org.covid19support.constants.Message
+import org.covid19support.constants.*
 import java.lang.IllegalStateException
 
+//TODO Investigate What errors can be thrown on delete
+//TODO Investigate how to check when a delete fails
 
 fun Application.users_module() {
     routing {
@@ -28,24 +30,31 @@ fun Application.users_module() {
                 val users: ArrayList<User> = arrayListOf()
                 val page_size: Int = run { if (call.parameters["page_size"]?.toIntOrNull() != null) call.parameters["page_size"]!!.toInt() else 10}
                 val current_page: Int = run { if (call.parameters["page"]?.toIntOrNull() != null) call.parameters["page"]!!.toInt() else 1}
-                transaction(DbSettings.db) {
-                    val results:List<ResultRow> = Users.selectAll().limit(page_size, offset = (page_size * (current_page-1)).toLong()).toList()
-                    results.forEach {
-                        users.add(Users.toUser(it))
-                    }
-                }
-                if (users.isEmpty()) {
-                    call.respond(HttpStatusCode.NoContent, Message("No users found!"))
+                if (current_page < 1 || page_size < 1) {
+                    call.respond(HttpStatusCode.BadRequest, Message("Invalid pagination values (Can't be less than 1)"))
                 }
                 else {
-                    call.respond(HttpStatusCode.OK, users)
+                    transaction(DbSettings.db) {
+                        val results:List<ResultRow> = Users.selectAll().limit(page_size, offset = (page_size * (current_page-1)).toLong()).toList()
+                        results.forEach {
+                            users.add(Users.toUser(it))
+                        }
+                    }
+                    if (users.isEmpty()) {
+                        call.respond(HttpStatusCode.NoContent, Message("No users found!"))
+                    }
+                    else {
+                        call.respond(HttpStatusCode.OK, users)
+                    }
                 }
+
             }
 
             post {
                 try {
                     val newUser: User = call.receive()
                     var id:Int = -1
+                    log.info(newUser.toString())
                     try {
                         val passhash = BCrypt.hashpw(newUser.password, BCrypt.gensalt())
                         transaction (DbSettings.db) {
@@ -58,7 +67,7 @@ fun Application.users_module() {
                             }.value
                         }
                         newUser.id = id
-                        call.sessions.set(SessionAuth(Token.create(id, newUser.email)))
+                        call.sessions.set(SessionAuth(Token.create(id, newUser.email, newUser.role)))
                         call.respond(HttpStatusCode.Created, newUser)
                     }
                     catch (ex:ExposedSQLException) {
@@ -78,20 +87,70 @@ fun Application.users_module() {
             route("/{id}") {
                 get {
                     var user: User? = null
-                    val id:Int = call.parameters["id"]!!.toInt()
-                    transaction(DbSettings.db) {
-                        val result:ResultRow? = Users.select{Users.id eq id}.firstOrNull()
+                    val id:Int? = call.parameters["id"]!!.toIntOrNull()
+                    if (id != null) {
+                        transaction(DbSettings.db) {
+                            val result:ResultRow? = Users.select{Users.id eq id}.firstOrNull()
 
-                        if (result != null) {
-                            user = Users.toUser(result)
+                            if (result != null) {
+                                user = Users.toUser(result)
+                            }
+
                         }
-
-                    }
-                    if (user == null) {
-                        call.respond(HttpStatusCode.NoContent, Message("User not found!"))
+                        if (user == null) {
+                            call.respond(HttpStatusCode.NoContent, Message("User not found!"))
+                        }
+                        else {
+                            call.respond(user!!)
+                        }
                     }
                     else {
-                        call.respond(user!!)
+                        call.respond(HttpStatusCode.BadRequest, Message("Must pass an integer value!"))
+                    }
+                }
+
+                patch {
+
+                }
+
+                delete {
+                    val authenticator = Authenticator(call)
+                    if (authenticator.authenticate()) {
+                        if (authenticator.authorize(Role.NORMAL)) {
+                            val id:Int? = call.parameters["id"]!!.toIntOrNull()
+                            if (id != null)
+                            {
+                                try {
+                                    var canDelete = false
+                                    if (authenticator.getRole()!! > Role.MODERATOR)
+                                    {
+                                        canDelete = true
+                                    }
+                                    else if (id == authenticator.getID()) {
+                                        canDelete = true
+                                    }
+                                    if (canDelete) {
+                                        transaction(DbSettings.db) {
+                                            Users.deleteWhere { Users.id eq id }
+                                        }
+                                        if (id == authenticator.getID()) {
+                                            call.sessions.clear<SessionAuth>()
+                                        }
+                                        call.respond(HttpStatusCode.OK, Message(DELETED))
+                                    }
+                                    else {
+                                        call.respond(HttpStatusCode.Forbidden, Message(FORBIDDEN))
+                                    }
+                                }
+                                catch (ex:ExposedSQLException) {
+                                    log.error(ex.message)
+                                    call.respond(HttpStatusCode.BadRequest, Message("Something went wrong, will implement more detailed response later."))
+                                }
+                            }
+                            else {
+                                call.respond(HttpStatusCode.BadRequest, Message("Must pass an integer value!"))
+                            }
+                        }
                     }
                 }
             }

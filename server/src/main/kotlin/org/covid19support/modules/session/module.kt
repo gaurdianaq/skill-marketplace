@@ -24,11 +24,11 @@ fun Application.session_module() {
         route("/session") {
             route("/authenticate") {
                 get {
-                    val decodedToken: DecodedJWT? = authenticate(call)
-                    if (decodedToken != null) {
+                    val authenticator = Authenticator(call)
+                    if (authenticator.authenticate()) {
                         var result: ResultRow? = null
                         transaction(DbSettings.db) {
-                            result = Users.select { Users.id eq decodedToken.claims["id"]!!.asInt() }.firstOrNull()
+                            result = Users.select { Users.id eq authenticator.getID() }.firstOrNull()
                         }
                         if (result != null) {
                             val user: User = Users.toUser(result!!)
@@ -47,24 +47,18 @@ fun Application.session_module() {
                         var result: ResultRow? = null
                         val user: User
                         var success:Boolean = false
-                        log.info(loginInfo.email)
-                        log.info(loginInfo.password)
                         transaction(DbSettings.db) {
                             result = Users.select{ Users.email eq loginInfo.email}.firstOrNull()
                         }
                         if (result != null) {
-                            log.info(result!![Users.password])
                             val passhash:String = result!![Users.password]
-                            if (loginInfo.password == "gaurdianAQ#123")
-                                log.info(BCrypt.checkpw("gaurdianAQ#123", passhash).toString())
-                            log.info(BCrypt.checkpw(loginInfo.password, passhash).toString())
                             if (BCrypt.checkpw(loginInfo.password, passhash)) {
                                 success = true
                             }
                         }
                         if (success) {
                             user = Users.toUser(result!!)
-                            call.sessions.set(SessionAuth(Token.create(result!![Users.id].value, loginInfo.email)))
+                            call.sessions.set(SessionAuth(Token.create(result!![Users.id].value, loginInfo.email, result!![Users.role])))
                             call.respond(HttpStatusCode.OK, user)
                         }
                         else {

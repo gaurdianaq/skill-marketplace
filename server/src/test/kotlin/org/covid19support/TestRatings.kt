@@ -4,6 +4,7 @@ import com.google.gson.JsonObject
 import io.ktor.http.*
 import io.ktor.server.testing.*
 import io.ktor.sessions.*
+import org.covid19support.constants.Message
 import org.covid19support.modules.courses.Course
 import org.covid19support.modules.courses.Courses
 import org.covid19support.modules.ratings.Rating
@@ -36,7 +37,7 @@ class TestRatings : BaseTest() {
     //TODO Delete Ratings Failure (Unauthorized)
 
     @Test
-    fun addRatings() = withTestApplication ({
+    fun addRatings() : Unit = withTestApplication ({
         main(true)
         users_module()
         ratings_module()
@@ -129,7 +130,7 @@ class TestRatings : BaseTest() {
     }
 
     @Test
-    fun addRatingsForeignKeyViolation() = withTestApplication({
+    fun addRatingsForeignKeyViolation() : Unit = withTestApplication({
         main(true)
         users_module()
         ratings_module()
@@ -155,7 +156,7 @@ class TestRatings : BaseTest() {
     }
 
     @Test
-    fun addRatingsInvalidDataFormat() = withTestApplication({
+    fun addRatingsInvalidDataFormat() : Unit = withTestApplication({
         main(true)
         users_module()
         ratings_module()
@@ -181,7 +182,7 @@ class TestRatings : BaseTest() {
     }
 
     @Test
-    fun addRatingsUnauthenticated() = withTestApplication ({
+    fun addRatingsUnauthenticated() : Unit = withTestApplication ({
         main(true)
         ratings_module()
     }) {
@@ -195,7 +196,7 @@ class TestRatings : BaseTest() {
     }
 
     @Test
-    fun getSingleRating() = withTestApplication({
+    fun getSingleRating() : Unit = withTestApplication({
         main(true)
         users_module()
         ratings_module()
@@ -241,7 +242,7 @@ class TestRatings : BaseTest() {
     }
 
     @Test
-    fun getRatingForeignKeyViolation() = withTestApplication({
+    fun getRatingForeignKeyViolation() : Unit = withTestApplication({
         main(true)
         ratings_module()
     }) {
@@ -292,6 +293,47 @@ class TestRatings : BaseTest() {
             assertDoesNotThrow { gson.fromJson(response.content, Array<RatingComponent>::class.java) }
             val ratingComponents = gson.fromJson(response.content, Array<RatingComponent>::class.java)
             assertEquals(1, ratingComponents.size)
+        }
+    }
+
+    @Test
+    fun invalidPaginationValuesLessThan1() : Unit = withTestApplication({
+        main(true)
+        ratings_module()
+    }) {
+        with(handleRequest(HttpMethod.Get, "${Routes.COURSE_RATINGS}/4?page_size=0")) {
+            assertEquals(HttpStatusCode.BadRequest, response.status())
+            assertDoesNotThrow { gson.fromJson(response.content, Message::class.java) }
+        }
+
+        with(handleRequest(HttpMethod.Get, "${Routes.COURSE_RATINGS}/4?page_size=-1")) {
+            assertEquals(HttpStatusCode.BadRequest, response.status())
+            assertDoesNotThrow { gson.fromJson(response.content, Message::class.java) }
+        }
+
+        with(handleRequest(HttpMethod.Get, "${Routes.COURSE_RATINGS}/4?page=0")) {
+            assertEquals(HttpStatusCode.BadRequest, response.status())
+            assertDoesNotThrow { gson.fromJson(response.content, Message::class.java) }
+        }
+
+        with(handleRequest(HttpMethod.Get, "${Routes.COURSE_RATINGS}/4?page=-1")) {
+            assertEquals(HttpStatusCode.BadRequest, response.status())
+            assertDoesNotThrow { gson.fromJson(response.content, Message::class.java) }
+        }
+
+        with(handleRequest(HttpMethod.Get, "${Routes.COURSE_RATINGS}/4?page=-1&page_size=0")) {
+            assertEquals(HttpStatusCode.BadRequest, response.status())
+            assertDoesNotThrow { gson.fromJson(response.content, Message::class.java) }
+        }
+
+        with(handleRequest(HttpMethod.Get, "${Routes.COURSE_RATINGS}/4?page=-1&page_size=5")) {
+            assertEquals(HttpStatusCode.BadRequest, response.status())
+            assertDoesNotThrow { gson.fromJson(response.content, Message::class.java) }
+        }
+
+        with(handleRequest(HttpMethod.Get, "${Routes.COURSE_RATINGS}/4?page=2&page_size=-1")) {
+            assertEquals(HttpStatusCode.BadRequest, response.status())
+            assertDoesNotThrow { gson.fromJson(response.content, Message::class.java) }
         }
     }
 }

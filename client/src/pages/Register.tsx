@@ -52,7 +52,7 @@ function Register() {
   const onSubmit = handleSubmit(form => {
     const { email, password, firstName, lastName } = form;
     fetch.post(USERS_ROUTE, {
-      body: { email, password, first_name: firstName, last_name: lastName },
+      body: { email, password, firstName, lastName },
     });
   });
 

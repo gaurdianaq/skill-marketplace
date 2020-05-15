@@ -8,9 +8,9 @@ import io.ktor.routing.*
 import io.ktor.response.*
 import org.covid19support.DbSettings
 import org.covid19support.SQLState
+import org.covid19support.authentication.Authenticator
 import org.covid19support.constants.INTERNAL_ERROR
 import org.covid19support.constants.INVALID_BODY
-import org.covid19support.authentication.authenticate
 import org.covid19support.constants.Message
 import org.covid19support.modules.ratings.Rating
 import org.covid19support.modules.ratings.Ratings
@@ -28,77 +28,82 @@ fun Application.courses_module() {
                 val categories: List<String>? = call.parameters["categories"]?.split(',')
                 val page_size: Int = run { if (call.parameters["page_size"]?.toIntOrNull() != null) call.parameters["page_size"]!!.toInt() else 10}
                 val current_page: Int = run { if (call.parameters["page"]?.toIntOrNull() != null) call.parameters["page"]!!.toInt() else 1}
-                val courses: HashMap<Int, ArrayList<Course>> = HashMap()
-                val instructors: HashMap<Int, User> = HashMap()
-                val ratings: HashMap<Int, ArrayList<Rating>> = HashMap()
-                val courseComponents: ArrayList<CourseComponent> = arrayListOf()
-                lateinit var coursesQuery: Query
-                if (categories == null && instructor_id == null) {
-                    coursesQuery = Courses.selectAll().limit(page_size, offset = (page_size * (current_page-1)).toLong())
-                } else if (categories != null && instructor_id == null) {
-                    coursesQuery = Courses.select { Courses.category inList categories }.limit(page_size, offset = (page_size * (current_page-1)).toLong())
-                } else if (categories == null && instructor_id != null) {
-                    coursesQuery = Courses.select { Courses.instructor_id eq instructor_id }.limit(page_size, offset = (page_size * (current_page-1)).toLong())
-                } else if (categories != null && instructor_id != null) {
-                    coursesQuery = Courses.select { (Courses.instructor_id eq instructor_id) and (Courses.category inList categories) }.limit(page_size, offset = (page_size * (current_page-1)).toLong())
+                if (page_size < 1 || current_page < 1) {
+                    call.respond(HttpStatusCode.BadRequest, Message("Invalid pagination values (Can't be less than 1)"))
                 }
+                else {
+                    val courses: HashMap<Int, ArrayList<Course>> = HashMap()
+                    val instructors: HashMap<Int, User> = HashMap()
+                    val ratings: HashMap<Int, ArrayList<Rating>> = HashMap()
+                    val courseComponents: ArrayList<CourseComponent> = arrayListOf()
+                    lateinit var coursesQuery: Query
+                    if (categories == null && instructor_id == null) {
+                        coursesQuery = Courses.selectAll().limit(page_size, offset = (page_size * (current_page-1)).toLong())
+                    } else if (categories != null && instructor_id == null) {
+                        coursesQuery = Courses.select { Courses.category inList categories }.limit(page_size, offset = (page_size * (current_page-1)).toLong())
+                    } else if (categories == null && instructor_id != null) {
+                        coursesQuery = Courses.select { Courses.instructor_id eq instructor_id }.limit(page_size, offset = (page_size * (current_page-1)).toLong())
+                    } else if (categories != null && instructor_id != null) {
+                        coursesQuery = Courses.select { (Courses.instructor_id eq instructor_id) and (Courses.category inList categories) }.limit(page_size, offset = (page_size * (current_page-1)).toLong())
+                    }
 
-                transaction(DbSettings.db) {
-                    coursesQuery.forEach {
-                        val courseId: Int = it[Courses.id].value
-                        val instructorId: Int = it[Courses.instructor_id]
-                        if (courses[instructorId] == null) {
-                            courses[instructorId] = arrayListOf()
-                            courses[instructorId]?.add(Courses.toCourse(it))
-                        } else {
-                            courses[instructorId]?.add(Courses.toCourse(it))
-                        }
-                        Ratings.select { Ratings.course_id eq courseId }.forEach {
-                            if (ratings[courseId] == null) {
-                                ratings[courseId] = arrayListOf()
-                                ratings[courseId]?.add(Ratings.toRating(it))
+                    transaction(DbSettings.db) {
+                        coursesQuery.forEach {
+                            val courseId: Int = it[Courses.id].value
+                            val instructorId: Int = it[Courses.instructor_id]
+                            if (courses[instructorId] == null) {
+                                courses[instructorId] = arrayListOf()
+                                courses[instructorId]?.add(Courses.toCourse(it))
                             } else {
-                                ratings[courseId]?.add(Ratings.toRating(it))
+                                courses[instructorId]?.add(Courses.toCourse(it))
                             }
-                        }
-                        if (instructors[instructorId] == null) {
-                            instructors[instructorId] = Users.toUser(Users.select { Users.id eq instructorId }.first())
-                        }
-                    }
-                    Users.selectAll().forEach {
-                        instructors[it[Users.id].value] = Users.toUser(it)
-                    }
-                }
-                if (courses.isEmpty()) {
-                    call.respond(HttpStatusCode.NoContent, Message("No courses found!"))
-                } else {
-                    courses.forEach { (instructor_id, instructor_courses) ->
-                        instructor_courses.forEach {
-                            var rating: Short? = null
-                            if (ratings[it.id] != null) {
-                                rating = 0
-                                ratings[it.id]?.forEach {
-                                    rating = (rating!! + it.ratingValue).toShort()
+                            Ratings.select { Ratings.course_id eq courseId }.forEach {
+                                if (ratings[courseId] == null) {
+                                    ratings[courseId] = arrayListOf()
+                                    ratings[courseId]?.add(Ratings.toRating(it))
+                                } else {
+                                    ratings[courseId]?.add(Ratings.toRating(it))
                                 }
-                                rating = (rating!! / ratings[it.id]?.size!!).toShort()
                             }
-                            courseComponents.add(CourseComponent(instructor_id,
-                                    instructors[instructor_id]?.firstName + ' ' + instructors[instructor_id]?.lastName,
-                                    it.id!!,
-                                    it.name,
-                                    it.description,
-                                    rating,
-                                    it.category,
-                                    it.rate
-                            ))
+                            if (instructors[instructorId] == null) {
+                                instructors[instructorId] = Users.toUser(Users.select { Users.id eq instructorId }.first())
+                            }
+                        }
+                        Users.selectAll().forEach {
+                            instructors[it[Users.id].value] = Users.toUser(it)
                         }
                     }
-                    call.respond(HttpStatusCode.OK, courseComponents)
+                    if (courses.isEmpty()) {
+                        call.respond(HttpStatusCode.NoContent, Message("No courses found!"))
+                    } else {
+                        courses.forEach { (instructor_id, instructor_courses) ->
+                            instructor_courses.forEach {
+                                var rating: Short? = null
+                                if (ratings[it.id] != null) {
+                                    rating = 0
+                                    ratings[it.id]?.forEach {
+                                        rating = (rating!! + it.ratingValue).toShort()
+                                    }
+                                    rating = (rating!! / ratings[it.id]?.size!!).toShort()
+                                }
+                                courseComponents.add(CourseComponent(instructor_id,
+                                        instructors[instructor_id]?.firstName + ' ' + instructors[instructor_id]?.lastName,
+                                        it.id!!,
+                                        it.name,
+                                        it.description,
+                                        rating,
+                                        it.category,
+                                        it.rate
+                                ))
+                            }
+                        }
+                        call.respond(HttpStatusCode.OK, courseComponents)
+                    }
                 }
             }
             post {
-                val decodedToken: DecodedJWT? = authenticate(call)
-                if (decodedToken != null) {
+                val authenticator = Authenticator(call)
+                if (authenticator.authenticate()) {
                     try {
                         val course: Course = call.receive<Course>()
                         try {
@@ -106,7 +111,7 @@ fun Application.courses_module() {
                                 Courses.insert {
                                     it[name] = course.name
                                     it[description] = course.description
-                                    it[instructor_id] = decodedToken.claims["id"]!!.asInt()
+                                    it[instructor_id] = authenticator.getID()!!
                                     it[category] = course.category
                                     it[rate] = course.rate
                                 }
@@ -151,11 +156,11 @@ fun Application.courses_module() {
 
             route("/instructor") {
                 get {
-                    val decodedToken: DecodedJWT? = authenticate(call)
-                    if (decodedToken != null) {
+                    val authenticator = Authenticator(call)
+                    if (authenticator.authenticate()) {
                         val courses: ArrayList<Course> = arrayListOf()
                         transaction(DbSettings.db) {
-                            val results: List<ResultRow> = Courses.select { Courses.instructor_id eq decodedToken.claims["id"]!!.asInt() }.toList()
+                            val results: List<ResultRow> = Courses.select { Courses.instructor_id eq authenticator.getID()!! }.toList()
                             results.forEach {
                                 courses.add(Courses.toCourse(it))
                             }

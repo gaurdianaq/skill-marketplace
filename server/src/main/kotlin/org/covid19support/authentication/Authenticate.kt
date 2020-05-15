@@ -6,24 +6,72 @@ import io.ktor.http.HttpStatusCode
 import io.ktor.response.respond
 import io.ktor.sessions.*
 import org.covid19support.SessionAuth
+import org.covid19support.constants.FORBIDDEN
 import org.covid19support.constants.Message
 import org.covid19support.constants.SHAME
 import org.covid19support.constants.UNAUTHORIZED
 
-//Checks for session token, checks if it's valid, and responds appropriately if it's not
-//Returns token if valid, and null if not.
-suspend fun authenticate(call: ApplicationCall): DecodedJWT? {
-    val token: String? = call.sessions.get<SessionAuth>()?.token
-    var decodedToken: DecodedJWT? = null
-    if (token != null) {
-        decodedToken = Token.verify(token)
+open class Authenticator(val call: ApplicationCall) {
+    //Checks for session token, checks if it's valid, and responds appropriately if it's not
+    //Returns token if valid, and null if not.
+    protected var decodedToken: DecodedJWT? = null
+
+    fun getID() : Int? {
         if (decodedToken == null) {
-            call.respond(HttpStatusCode.Unauthorized, Message(SHAME))
-            call.sessions.clear<SessionAuth>()
+            return null
+        }
+        return decodedToken?.claims!![Token.ID_CLAIM]?.asInt()
+    }
+
+    fun getEmail() : String? {
+        if (decodedToken == null) {
+            return null
+        }
+        return decodedToken?.claims!![Token.EMAIL_CLAIM].toString()
+    }
+
+    fun getRole() : Role? {
+        if (decodedToken == null) {
+            return null
+        }
+        return when(decodedToken?.claims!![Token.ROLE_CLAIM]?.asString()) {
+            "Normal" -> Role.NORMAL
+            "Moderator" -> Role.MODERATOR
+            "Admin" -> Role.ADMIN
+            else -> null
         }
     }
-    else {
-        call.respond(HttpStatusCode.Unauthorized, Message(UNAUTHORIZED))
+
+    suspend fun authenticate(): Boolean {
+        val token: String? = call.sessions.get<SessionAuth>()?.token
+        if (token != null) {
+            decodedToken = Token.verify(token)
+            if (decodedToken == null) {
+                call.respond(HttpStatusCode.Unauthorized, Message(SHAME))
+                call.sessions.clear<SessionAuth>()
+                return false
+            }
+        }
+        else {
+            call.respond(HttpStatusCode.Unauthorized, Message(UNAUTHORIZED))
+            return false
+        }
+        return true
     }
-    return decodedToken
+
+    //check whether the user has the required authorization level to perform this action
+    //individual route will determine any additional details
+    suspend fun authorize(requiredRole: Role): Boolean {
+        if (decodedToken == null) {
+            call.respond(HttpStatusCode.Unauthorized, Message(UNAUTHORIZED))
+            return false
+        }
+        else {
+            if (getRole()!! >= requiredRole) {
+                return true
+            }
+        }
+        call.respond(HttpStatusCode.Forbidden, Message(FORBIDDEN))
+        return false
+    }
 }

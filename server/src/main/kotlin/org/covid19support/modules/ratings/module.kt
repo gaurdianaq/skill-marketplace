@@ -8,9 +8,9 @@ import io.ktor.routing.*
 import io.ktor.response.*
 import org.covid19support.DbSettings
 import org.covid19support.SQLState
+import org.covid19support.authentication.Authenticator
 import org.covid19support.constants.INTERNAL_ERROR
 import org.covid19support.constants.INVALID_BODY
-import org.covid19support.authentication.authenticate
 import org.covid19support.constants.Message
 import org.covid19support.modules.users.User
 import org.covid19support.modules.users.Users
@@ -23,14 +23,14 @@ fun Application.ratings_module() {
     routing {
         route("/ratings") {
             post {
-                val decodedToken: DecodedJWT? = authenticate(call)
-                if (decodedToken != null) {
+                val authenticator = Authenticator(call)
+                if (authenticator.authenticate()) {
                     try {
                         val rating: Rating = call.receive<Rating>()
                         try {
                             transaction(DbSettings.db) {
                                 Ratings.insert {
-                                    it[user_id] = decodedToken.claims["id"]!!.asInt()
+                                    it[user_id] = authenticator.getID()!!
                                     it[course_id] = rating.courseId
                                     it[rating_value] = rating.ratingValue
                                     it[comment] = rating.comment
@@ -58,21 +58,26 @@ fun Application.ratings_module() {
                     val ratings: ArrayList<Rating> = arrayListOf()
                     val users: ArrayList<User> = arrayListOf()
                     val ratingsComponents: ArrayList<RatingComponent> = arrayListOf()
-                    transaction {
-                        val results: List<ResultRow> = Ratings.select { Ratings.course_id eq id }.limit(page_size, offset = (page_size * (current_page-1)).toLong()).toList()
-                        results.forEach {
-                            ratings.add(Ratings.toRating(it))
-                            users.add(Users.toUser(Users.select { Users.id eq ratings.last().userId }.first()))
+                    if (page_size < 1 || current_page < 1) {
+                        call.respond(HttpStatusCode.BadRequest, Message("Invalid pagination values (Can't be less than 1)"))
+                    }
+                    else {
+                        transaction {
+                            val results: List<ResultRow> = Ratings.select { Ratings.course_id eq id }.limit(page_size, offset = (page_size * (current_page-1)).toLong()).toList()
+                            results.forEach {
+                                ratings.add(Ratings.toRating(it))
+                                users.add(Users.toUser(Users.select { Users.id eq ratings.last().userId }.first()))
+                            }
                         }
-                    }
-                    for (i in 0 until ratings.size) {
-                        ratingsComponents.add(RatingComponent(ratings[i].userId, ratings[i].courseId, ratings[i].ratingValue,
-                                                              ratings[i].comment, users[i].firstName, users[i].lastName))
-                    }
-                    if (ratingsComponents.isEmpty()) {
-                        call.respond(HttpStatusCode.NoContent, Message("No ratings found!"))
-                    } else {
-                        call.respond(ratingsComponents)
+                        for (i in 0 until ratings.size) {
+                            ratingsComponents.add(RatingComponent(ratings[i].userId, ratings[i].courseId, ratings[i].ratingValue,
+                                    ratings[i].comment, users[i].firstName, users[i].lastName))
+                        }
+                        if (ratingsComponents.isEmpty()) {
+                            call.respond(HttpStatusCode.NoContent, Message("No ratings found!"))
+                        } else {
+                            call.respond(ratingsComponents)
+                        }
                     }
                 }
             }

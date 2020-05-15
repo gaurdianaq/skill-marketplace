@@ -8,9 +8,9 @@ import io.ktor.routing.*
 import io.ktor.response.*
 import org.covid19support.DbSettings
 import org.covid19support.SQLState
+import org.covid19support.authentication.Authenticator
 import org.covid19support.constants.INTERNAL_ERROR
 import org.covid19support.constants.INVALID_BODY
-import org.covid19support.authentication.authenticate
 import org.covid19support.constants.Message
 import org.jetbrains.exposed.exceptions.ExposedSQLException
 import org.jetbrains.exposed.sql.*
@@ -36,8 +36,8 @@ fun Application.userCourses_module() {
                 }
             }
             post {
-                val decodedToken: DecodedJWT? = authenticate(call)
-                if (decodedToken != null) {
+                val authenticator = Authenticator(call)
+                if (authenticator.authenticate()) {
                     try {
                         val userCourse: UserCourse = call.receive<UserCourse>()
                         try {

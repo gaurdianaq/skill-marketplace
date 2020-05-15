@@ -3,6 +3,7 @@ package org.covid19support
 import com.google.gson.*
 import io.ktor.http.*
 import io.ktor.server.testing.*
+import org.covid19support.constants.Message
 import org.covid19support.modules.courses.Course
 import org.covid19support.modules.courses.courses_module
 import org.covid19support.modules.session.Login
@@ -74,7 +75,7 @@ class TestCourses : BaseTest() {
     }
 
     @Test
-    fun addCoursesNoRatings() = withTestApplication({
+    fun addCoursesNoRatings() : Unit = withTestApplication({
         main(true)
         users_module()
         session_module()
@@ -162,7 +163,6 @@ class TestCourses : BaseTest() {
         }
 
         with(handleRequest(HttpMethod.Get, Routes.COURSES)) {
-            val content = response.content
             assertDoesNotThrow { gson.fromJson(response.content, JsonArray::class.java) }
             val courses: JsonArray = gson.fromJson(response.content, JsonArray::class.java)
             for (course in courses) {
@@ -174,7 +174,7 @@ class TestCourses : BaseTest() {
     }
 
     @Test
-    fun addCoursesInvalidData() = withTestApplication ({
+    fun addCoursesInvalidData() : Unit = withTestApplication ({
         main(true)
         users_module()
         session_module()
@@ -206,15 +206,14 @@ class TestCourses : BaseTest() {
                 assertEquals(HttpStatusCode.BadRequest, response.status())
             }
             with(handleRequest(HttpMethod.Get, Routes.COURSES)) {
-                assertDoesNotThrow { gson.fromJson(response.content, JsonObject::class.java) }
-                assertTrue(validateMessageFormat(gson.fromJson(response.content, JsonObject::class.java)))
+                assertDoesNotThrow { gson.fromJson(response.content, Message::class.java) }
                 assertEquals(HttpStatusCode.NoContent, response.status())
             }
         }
     }
 
     @Test
-    fun addCoursesUnauthenticated() = withTestApplication({
+    fun addCoursesUnauthenticated() : Unit = withTestApplication({
         main(true)
         users_module()
         courses_module()
@@ -238,14 +237,13 @@ class TestCourses : BaseTest() {
         }
 
         with(handleRequest(HttpMethod.Get, Routes.COURSES)) {
-            assertDoesNotThrow { gson.fromJson(response.content, JsonObject::class.java) }
-            assertTrue(validateMessageFormat(gson.fromJson(response.content, JsonObject::class.java)))
+            assertDoesNotThrow { gson.fromJson(response.content, Message::class.java) }
             assertEquals(HttpStatusCode.NoContent, response.status())
         }
     }
 
     @Test
-    fun addCoursesForeignKeyViolation() = withTestApplication ({
+    fun addCoursesForeignKeyViolation() : Unit = withTestApplication ({
         main(true)
         users_module()
         session_module()
@@ -276,15 +274,14 @@ class TestCourses : BaseTest() {
                 assertEquals(HttpStatusCode.BadRequest, response.status())
             }
             with(handleRequest(HttpMethod.Get, Routes.COURSES)) {
-                assertDoesNotThrow { gson.fromJson(response.content, JsonObject::class.java) }
-                assertTrue(validateMessageFormat(gson.fromJson(response.content, JsonObject::class.java)))
+                assertDoesNotThrow { gson.fromJson(response.content, Message::class.java) }
                 assertEquals(HttpStatusCode.NoContent, response.status())
             }
         }
     }
 
     @Test
-    fun addCoursesNegativeRate() = withTestApplication({
+    fun addCoursesNegativeRate() : Unit = withTestApplication({
         main(true)
         users_module()
         session_module()
@@ -325,15 +322,15 @@ class TestCourses : BaseTest() {
             }
 
             with(handleRequest(HttpMethod.Get, Routes.COURSES)) {
-                assertDoesNotThrow { gson.fromJson(response.content, JsonObject::class.java) }
-                assertTrue(validateMessageFormat(gson.fromJson(response.content, JsonObject::class.java)))
+
+                assertDoesNotThrow { gson.fromJson(response.content, Message::class.java) }
                 assertEquals(HttpStatusCode.NoContent, response.status())
             }
         }
     }
 
     @Test
-    fun getCoursesByParameters() = withTestApplication({
+    fun getCoursesByParameters() : Unit = withTestApplication({
         main(true)
         users_module()
         session_module()
@@ -528,17 +525,58 @@ class TestCourses : BaseTest() {
     }
 
     @Test
-    fun getCourseNotFound() = withTestApplication ({
+    fun getCourseNotFound() : Unit = withTestApplication ({
         main(true)
         courses_module()
     }) {
         with(handleRequest(HttpMethod.Get, Routes.COURSES)) {
             assertEquals(HttpStatusCode.NoContent, response.status())
-            assertTrue(validateMessageFormat(gson.fromJson(response.content, JsonObject::class.java)))
+            assertDoesNotThrow { gson.fromJson(response.content, Message::class.java) }
         }
         with(handleRequest(HttpMethod.Get, "${Routes.COURSES}/3")) {
             assertEquals(HttpStatusCode.NoContent, response.status())
-            assertTrue(validateMessageFormat(gson.fromJson(response.content, JsonObject::class.java)))
+            assertDoesNotThrow { gson.fromJson(response.content, Message::class.java) }
+        }
+    }
+
+    @Test
+    fun invalidPaginationValuesLessThan1() : Unit = withTestApplication({
+        main(true)
+        courses_module()
+    }) {
+        with(handleRequest(HttpMethod.Get, "${Routes.COURSES}?page_size=0")) {
+            assertEquals(HttpStatusCode.BadRequest, response.status())
+            assertDoesNotThrow { gson.fromJson(response.content, Message::class.java) }
+        }
+
+        with(handleRequest(HttpMethod.Get, "${Routes.COURSES}?page_size=-1")) {
+            assertEquals(HttpStatusCode.BadRequest, response.status())
+            assertDoesNotThrow { gson.fromJson(response.content, Message::class.java) }
+        }
+
+        with(handleRequest(HttpMethod.Get, "${Routes.COURSES}?page=0")) {
+            assertEquals(HttpStatusCode.BadRequest, response.status())
+            assertDoesNotThrow { gson.fromJson(response.content, Message::class.java) }
+        }
+
+        with(handleRequest(HttpMethod.Get, "${Routes.COURSES}?page=-1")) {
+            assertEquals(HttpStatusCode.BadRequest, response.status())
+            assertDoesNotThrow { gson.fromJson(response.content, Message::class.java) }
+        }
+
+        with(handleRequest(HttpMethod.Get, "${Routes.COURSES}?page=-1&page_size=0")) {
+            assertEquals(HttpStatusCode.BadRequest, response.status())
+            assertDoesNotThrow { gson.fromJson(response.content, Message::class.java) }
+        }
+
+        with(handleRequest(HttpMethod.Get, "${Routes.COURSES}?page=-1&page_size=5")) {
+            assertEquals(HttpStatusCode.BadRequest, response.status())
+            assertDoesNotThrow { gson.fromJson(response.content, Message::class.java) }
+        }
+
+        with(handleRequest(HttpMethod.Get, "${Routes.COURSES}?page=2&page_size=-1")) {
+            assertEquals(HttpStatusCode.BadRequest, response.status())
+            assertDoesNotThrow { gson.fromJson(response.content, Message::class.java) }
         }
     }
 }
