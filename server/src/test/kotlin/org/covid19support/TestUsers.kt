@@ -19,10 +19,8 @@ import kotlin.test.*
 
 class TestUsers : BaseTest() {
     //TODO Valid Format Returned (Description included when it exists and not included when it doesn't
-    //TODO Register logs user in
     //TODO Add Users Text Too Long
     //TODO Invalid Email & Password (once validation is added)
-    //TODO Delete User Does Not Exist
 
 
     @Test
@@ -669,6 +667,36 @@ class TestUsers : BaseTest() {
             }) {
                 assertEquals(HttpStatusCode.BadRequest, response.status())
                 assertDoesNotThrow { gson.fromJson(response.content, Message::class.java)}
+            }
+        }
+    }
+
+    @Test
+    fun editUserInvalidFields(): Unit = withTestApplication({
+        main(true)
+        users_module()
+    }) {
+        val user = User(null, "user@user.com", "password", "User", "McUserson", null)
+        cookiesSession {
+            with(handleRequest(HttpMethod.Post, Routes.USERS){
+                addHeader(HttpHeaders.ContentType, ContentType.Application.Json.toString())
+                setBody(gson.toJson(user))
+            }) {
+                assertEquals(HttpStatusCode.Created, response.status())
+                assertDoesNotThrow { gson.fromJson(response.content, User::class.java) }
+                user.id = gson.fromJson(response.content, User::class.java).id
+                assertNotNull(sessions.get<SessionAuth>())
+            }
+            val badData = JsonObject()
+            badData.addProperty("notvalid", "doesntmatter")
+            badData.addProperty("notvalidnumber", 5)
+            badData.addProperty("notvalidbool", false)
+            with(handleRequest(HttpMethod.Patch, "${Routes.USERS}/${user.id}"){
+                addHeader(HttpHeaders.ContentType, ContentType.Application.Json.toString())
+                setBody(gson.toJson(badData))
+            }) {
+                assertEquals(HttpStatusCode.BadRequest, response.status())
+                assertDoesNotThrow { gson.fromJson(response.content, Message::class.java) }
             }
         }
     }
