@@ -138,6 +138,105 @@ class TestUsers : BaseTest() {
     }
 
     @Test
+    fun addPrivilegedUserFailure() : Unit = withTestApplication({
+        main(true)
+        users_module()
+    }) {
+        val user = User(null, "user@user.net", "password", "User", "User", null)
+        val moderator = User(null, "mod@mod.net", "password", "Moderator", "Moderator", null, role = Role.MODERATOR.value)
+        val admin = User(null, "admin@admin.net", "password", "Administrator", "Administrator", null, role = Role.ADMIN.value)
+
+        with(handleRequest(HttpMethod.Post, Routes.USERS){
+            addHeader(HttpHeaders.ContentType, ContentType.Application.Json.toString())
+            setBody(gson.toJson(moderator))
+        }) {
+            assertEquals(HttpStatusCode.Unauthorized, response.status())
+            assertDoesNotThrow { gson.fromJson(response.content, Message::class.java) }
+        }
+
+        with(handleRequest(HttpMethod.Post, Routes.USERS){
+            addHeader(HttpHeaders.ContentType, ContentType.Application.Json.toString())
+            setBody(gson.toJson(admin))
+        }) {
+            assertEquals(HttpStatusCode.Unauthorized, response.status())
+            assertDoesNotThrow { gson.fromJson(response.content, Message::class.java) }
+        }
+
+        cookiesSession {
+            with(handleRequest(HttpMethod.Post, Routes.USERS){
+                addHeader(HttpHeaders.ContentType, ContentType.Application.Json.toString())
+                setBody(gson.toJson(user))
+            }) {
+                assertEquals(HttpStatusCode.Created, response.status())
+                assertDoesNotThrow { gson.fromJson(response.content, User::class.java) }
+                assertNotNull(sessions.get<SessionAuth>())
+            }
+
+            with(handleRequest(HttpMethod.Post, Routes.USERS){
+                addHeader(HttpHeaders.ContentType, ContentType.Application.Json.toString())
+                setBody(gson.toJson(moderator))
+            }) {
+                assertEquals(HttpStatusCode.Forbidden, response.status())
+                assertDoesNotThrow { gson.fromJson(response.content, Message::class.java) }
+            }
+
+            with(handleRequest(HttpMethod.Post, Routes.USERS){
+                addHeader(HttpHeaders.ContentType, ContentType.Application.Json.toString())
+                setBody(gson.toJson(admin))
+            }) {
+                assertEquals(HttpStatusCode.Forbidden, response.status())
+                assertDoesNotThrow { gson.fromJson(response.content, Message::class.java) }
+            }
+        }
+    }
+
+    @Test
+    fun addPrivilegedUserSuccess() : Unit = withTestApplication({
+        main(true)
+        users_module()
+        session_module()
+    }) {
+        val admin = User(null, "user@user.net", "password", "User", "User", null, role = Role.ADMIN.value)
+        val moderator = User(null, "mod@mod.net", "password", "Moderator", "Moderator", null, role = Role.MODERATOR.value)
+        val admin2 = User(null, "admin@admin.net", "password", "Administrator", "Administrator", null, role = Role.ADMIN.value)
+
+        transaction(DbSettings.db) {
+            Users.insertUser(admin)
+        }
+
+        cookiesSession {
+            lateinit var token: String
+            with(handleRequest(HttpMethod.Post, Routes.LOGIN){
+                addHeader(HttpHeaders.ContentType, ContentType.Application.Json.toString())
+                setBody(gson.toJson(Login(admin.email, admin.password)))
+            }) {
+                assertEquals(HttpStatusCode.OK, response.status())
+                assertDoesNotThrow { gson.fromJson(response.content, User::class.java) }
+                assertNotNull(sessions.get<SessionAuth>())
+                token = sessions.get<SessionAuth>()?.token!!
+            }
+
+            with(handleRequest(HttpMethod.Post, Routes.USERS){
+                addHeader(HttpHeaders.ContentType, ContentType.Application.Json.toString())
+                setBody(gson.toJson(moderator))
+            }) {
+                assertEquals(HttpStatusCode.Created, response.status())
+                assertDoesNotThrow { gson.fromJson(response.content, User::class.java) }
+                assertEquals(token, sessions.get<SessionAuth>()?.token!!) //ensure that it's not changing my session token
+            }
+
+            with(handleRequest(HttpMethod.Post, Routes.USERS){
+                addHeader(HttpHeaders.ContentType, ContentType.Application.Json.toString())
+                setBody(gson.toJson(admin2))
+            }) {
+                assertEquals(HttpStatusCode.Created, response.status())
+                assertDoesNotThrow { gson.fromJson(response.content, User::class.java) }
+                assertEquals(token, sessions.get<SessionAuth>()?.token!!) //ensure that it's not changing my session token
+            }
+        }
+    }
+
+    @Test
     fun getUserNotFound() : Unit = withTestApplication({
         main(true)
         users_module()
@@ -700,5 +799,60 @@ class TestUsers : BaseTest() {
                 assertDoesNotThrow { gson.fromJson(response.content, Message::class.java) }
             }
         }
+    }
+
+    @Test
+    fun editOwnRole(): Unit = withTestApplication({
+        main(true)
+        users_module()
+        session_module()
+    }) {
+        val user = User(null, "user@user.org", "password", "User", "User", null, role = "Moderator")
+        val user2 = User(null, "user2@user2.org", "password", "User", "User", null, role = "Normal")
+        transaction(DbSettings.db) {
+            user.id = Users.insertUserAndGetId(user)
+            user2.id = Users.insertUserAndGetId(user2)
+        }
+
+        cookiesSession {
+            with(handleRequest(HttpMethod.Post, Routes.LOGIN) {
+                addHeader(HttpHeaders.ContentType, ContentType.Application.Json.toString())
+                setBody(gson.toJson(Login(user.email, user.password)))
+            }) {
+                assertEquals(HttpStatusCode.OK, response.status())
+                assertDoesNotThrow { gson.fromJson(response.content, User::class.java) }
+                assertNotNull(sessions.get<SessionAuth>())
+            }
+            val editUser1 = JsonObject()
+            editUser1.addProperty("role", Role.ADMIN.value)
+            with(handleRequest(HttpMethod.Patch, "${Routes.USERS}/${user.id}") {
+                addHeader(HttpHeaders.ContentType, ContentType.Application.Json.toString())
+                setBody(gson.toJson(editUser1))
+            }) {
+                assertEquals(HttpStatusCode.Forbidden, response.status())
+                assertDoesNotThrow { gson.fromJson(response.content, Message::class.java) }
+            }
+        }
+
+        cookiesSession {
+            with(handleRequest(HttpMethod.Post, Routes.LOGIN) {
+                addHeader(HttpHeaders.ContentType, ContentType.Application.Json.toString())
+                setBody(gson.toJson(Login(user2.email, user2.password)))
+            }) {
+                assertEquals(HttpStatusCode.OK, response.status())
+                assertDoesNotThrow { gson.fromJson(response.content, User::class.java) }
+                assertNotNull(sessions.get<SessionAuth>())
+            }
+            val editUser1 = JsonObject()
+            editUser1.addProperty("role", Role.MODERATOR.value)
+            with(handleRequest(HttpMethod.Patch, "${Routes.USERS}/${user2.id}") {
+                addHeader(HttpHeaders.ContentType, ContentType.Application.Json.toString())
+                setBody(gson.toJson(editUser1))
+            }) {
+                assertEquals(HttpStatusCode.Forbidden, response.status())
+                assertDoesNotThrow { gson.fromJson(response.content, Message::class.java) }
+            }
+        }
+
     }
 }
