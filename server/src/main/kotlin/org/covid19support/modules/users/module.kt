@@ -83,6 +83,11 @@ fun Application.users_module() {
                     }
                 }
                 catch(ex:IllegalStateException) {
+                    log.error(ex.message)
+                    call.respond(HttpStatusCode.BadRequest, Message(INVALID_BODY))
+                }
+                catch(ex:JsonSyntaxException) {
+                    log.error(ex.message)
                     call.respond(HttpStatusCode.BadRequest, Message(INVALID_BODY))
                 }
             }
@@ -173,7 +178,7 @@ fun Application.users_module() {
                                 }
                                 catch (ex:JsonSyntaxException) {
                                     log.error(ex.message)
-                                    call.respond(HttpStatusCode.BadRequest, Message("Invalid data type"))
+                                    call.respond(HttpStatusCode.BadRequest, Message(INVALID_BODY))
                                 }
                             }
                             else {
