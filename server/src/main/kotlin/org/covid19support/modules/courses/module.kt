@@ -10,6 +10,7 @@ import io.ktor.response.*
 import org.covid19support.DbSettings
 import org.covid19support.SQLState
 import org.covid19support.authentication.Authenticator
+import org.covid19support.authentication.Role
 import org.covid19support.constants.INTERNAL_ERROR
 import org.covid19support.constants.INVALID_BODY
 import org.covid19support.constants.Message
@@ -156,6 +157,30 @@ fun Application.courses_module() {
                     }
                     else {
                         call.respond(course!!)
+                    }
+                }
+
+                patch {
+                    val authenticator = Authenticator(call)
+                    if (authenticator.authenticate()) {
+                        val id:Int? = call.parameters["id"]!!.toIntOrNull()
+                        if (id != null) {
+                            try {
+                                val courseInfo: Course = call.receive()
+                                var canEdit = false
+                            }
+                            catch (ex:ExposedSQLException) {
+                                log.error(ex.message)
+                                call.respond(HttpStatusCode.BadRequest, Message("Database Error"))
+                            }
+                            catch (ex:JsonSyntaxException) {
+                                log.error(ex.message)
+                                call.respond(HttpStatusCode.BadRequest, Message(INVALID_BODY))
+                            }
+                        }
+                        else {
+                            call.respond(HttpStatusCode.BadRequest, Message("Must pass an integer value!"))
+                        }
                     }
                 }
             }
