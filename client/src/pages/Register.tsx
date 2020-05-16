@@ -49,10 +49,12 @@ function Register() {
   const history = useHistory();
   const { handleSubmit, register } = useForm();
 
-  const onSubmit = handleSubmit(form => {
+  const onSubmit = handleSubmit((form) => {
     const { email, password, firstName, lastName } = form;
+    const role = 'Normal';
+
     fetch.post(USERS_ROUTE, {
-      body: { email, password, firstName, lastName },
+      body: { email, password, firstName, lastName, role },
     });
   });
 
