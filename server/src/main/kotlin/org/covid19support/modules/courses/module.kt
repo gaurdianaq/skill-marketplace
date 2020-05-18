@@ -172,7 +172,7 @@ fun Application.courses_module() {
                             averageRating = (averageRating!! / ratings.size).toShort()
                         }
                         val courseComponent = CourseComponent(course!!.instructorId, "${instructor.firstName} ${instructor.lastName}", course!!.id!!, course!!.name, course!!.description, averageRating, course!!.category, course!!.rate)
-                        call.respond(courseComponent)
+                        call.respond(HttpStatusCode.OK, courseComponent)
                     }
                 }
 
