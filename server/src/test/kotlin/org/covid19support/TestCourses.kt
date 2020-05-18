@@ -5,11 +5,17 @@ import io.ktor.http.*
 import io.ktor.server.testing.*
 import org.covid19support.constants.Message
 import org.covid19support.modules.courses.Course
+import org.covid19support.modules.courses.CourseComponent
+import org.covid19support.modules.courses.Courses
 import org.covid19support.modules.courses.courses_module
+import org.covid19support.modules.ratings.Rating
+import org.covid19support.modules.ratings.Ratings
 import org.covid19support.modules.session.Login
 import org.covid19support.modules.session.session_module
 import org.covid19support.modules.users.User
+import org.covid19support.modules.users.Users
 import org.covid19support.modules.users.users_module
+import org.jetbrains.exposed.sql.transactions.transaction
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.*
 import kotlin.test.*
@@ -170,6 +176,60 @@ class TestCourses : BaseTest() {
                 assertTrue(validateCourseComponentFormat(course.asJsonObject))
             }
             assertEquals(6, courses.size())
+        }
+    }
+
+    @Test
+    fun getCourseWithRatings() : Unit = withTestApplication({
+        main(true)
+        courses_module()
+    }) {
+        val instructor = User(null, "instructor@course.org", "password", "The", "Instructor", null, true)
+        val users = arrayOf(
+                User(null, "user1@user.org", "password", "User", "McUserson", null),
+                User(null, "user2@user.org", "password", "User", "McUserson", null),
+                User(null, "user3@user.org", "password", "User", "McUserson", null),
+                User(null, "user4@user.org", "password", "User", "McUserson", null),
+                User(null, "user5@user.org", "password", "User", "McUserson", null)
+        )
+
+        transaction(DbSettings.db) {
+            instructor.id = Users.insertUserAndGetId(instructor)
+            for (user in users) {
+                user.id = Users.insertUserAndGetId(user)
+            }
+        }
+        val course = Course(null, "Course", "A course", instructor.id!!, "Coding", 3f)
+        transaction(DbSettings.db) {
+            course.id = Courses.insertCourseAndGetId(course)
+        }
+
+        val ratings = arrayOf(
+                Rating(users[0].id!!, course.id!!, 3, "Meh"),
+                Rating(users[1].id!!, course.id!!, 1, "Shit"),
+                Rating(users[2].id!!, course.id!!, 5, "Divine"),
+                Rating(users[3].id!!, course.id!!, 4, "Good"),
+                Rating(users[4].id!!, course.id!!, 4, "Great!!")
+        )
+        transaction(DbSettings.db) {
+            for (rating in ratings) {
+                Ratings.insertRating(rating)
+            }
+        }
+        with(handleRequest(HttpMethod.Get, "${Routes.COURSES}/${course.id}")) {
+            assertEquals(HttpStatusCode.OK, response.status())
+            assertDoesNotThrow { gson.fromJson(response.content, CourseComponent::class.java) }
+            val json = response.content
+            val courseComponent = gson.fromJson(response.content, CourseComponent::class.java)
+            assertEquals(instructor.id, courseComponent.instructor_id)
+            assertEquals("${instructor.firstName} ${instructor.lastName}", courseComponent.instructor_name)
+            assertEquals(course.id, courseComponent.course_id)
+            assertEquals(course.name, courseComponent.course_name)
+            assertEquals(course.category, courseComponent.course_category)
+            assertEquals(course.description, courseComponent.course_description)
+            assertEquals(course.rate, courseComponent.course_rate)
+            assertEquals(3, courseComponent.course_rating)
+
         }
     }
 

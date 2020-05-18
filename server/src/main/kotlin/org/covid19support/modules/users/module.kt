@@ -184,8 +184,11 @@ fun Application.users_module() {
                                     if (result == 1) {
                                         call.respond(HttpStatusCode.OK, Message("Successfully updated user!"))
                                     }
-                                    else {
+                                    else if (result == 0) {
                                         call.respond(HttpStatusCode.BadRequest, Message("User does not exist or no data was provided to update!"))
+                                    }
+                                    else {
+                                        call.respond(HttpStatusCode.InternalServerError, Message(INTERNAL_ERROR))
                                     }
 
                                 }

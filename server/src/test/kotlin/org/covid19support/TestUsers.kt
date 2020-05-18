@@ -22,6 +22,7 @@ class TestUsers : BaseTest() {
     //TODO Valid Format Returned (Description included when it exists and not included when it doesn't
     //TODO Add Users Text Too Long
     //TODO Invalid Email & Password (once validation is added)
+    //TODO Test Edit User id should not change anything (Should this throw a bad request or simply be ignored? Probably throw a bad request)
 
 
     @Test
