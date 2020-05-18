@@ -200,13 +200,16 @@ fun Application.courses_module() {
                                     var result = 0
                                     transaction(DbSettings.db) {
                                         result = Courses.update({ Courses.id eq id }) {
+                                            if (newCourseInfo.name != null) {
+                                                it[name] = newCourseInfo.name
+                                            }
                                             if (newCourseInfo.category != null) {
                                                 it[category] = newCourseInfo.category
                                             }
                                             if (newCourseInfo.description != null) {
                                                 it[description] = newCourseInfo.description
                                             }
-                                            if (newCourseInfo.rate != null) {
+                                            if (newCourseInfo.rate > 0) {
                                                 it[rate] = newCourseInfo.rate
                                             }
                                         }
@@ -217,7 +220,7 @@ fun Application.courses_module() {
                                             call.respond(HttpStatusCode.OK, Message("Successfully updated user!"))
                                         }
                                         0 -> {
-                                            call.respond(HttpStatusCode.BadRequest, Message("User does not exist or no data was provided to update!"))
+                                            call.respond(HttpStatusCode.BadRequest, Message("Course does not exist or no data was provided to update!"))
                                         }
                                         else -> {
                                             call.respond(HttpStatusCode.InternalServerError, Message(INTERNAL_ERROR))

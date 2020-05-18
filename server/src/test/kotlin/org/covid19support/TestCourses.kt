@@ -3,6 +3,7 @@ package org.covid19support
 import com.google.gson.*
 import io.ktor.http.*
 import io.ktor.server.testing.*
+import io.ktor.sessions.*
 import org.covid19support.constants.Message
 import org.covid19support.modules.courses.Course
 import org.covid19support.modules.courses.CourseComponent
@@ -21,9 +22,9 @@ import org.junit.jupiter.api.*
 import kotlin.test.*
 
 class TestCourses : BaseTest() {
-    //TODO Add Courses with Ratings
     //TODO Add Course Text Fields too Long
     //TODO Edit Course
+    //TODO Edit Course as Admin
     //TODO Edit Course Unauthenticated
     //TODO Edit Course Unauthorized
     //TODO Delete Courses
@@ -33,7 +34,7 @@ class TestCourses : BaseTest() {
     //TODO Delete Course when Users have Booked
 
     @Test
-    fun addCoursesNoRatings() : Unit = withTestApplication({
+    fun addCourses() : Unit = withTestApplication({
         main(true)
         users_module()
         session_module()
@@ -125,90 +126,6 @@ class TestCourses : BaseTest() {
             assertDoesNotThrow { gson.fromJson(response.content, Array<CourseComponent>::class.java) }
             val courses = gson.fromJson(response.content, Array<CourseComponent>::class.java)
             assertEquals(6, courses.size)
-        }
-    }
-
-    @Test
-    fun getCourseWithRatings() : Unit = withTestApplication({
-        main(true)
-        courses_module()
-    }) {
-        val instructor = User(null, "instructor@course.org", "password", "The", "Instructor", null, true)
-        val users = arrayOf(
-                User(null, "user1@user.org", "password", "User", "McUserson", null),
-                User(null, "user2@user.org", "password", "User", "McUserson", null),
-                User(null, "user3@user.org", "password", "User", "McUserson", null),
-                User(null, "user4@user.org", "password", "User", "McUserson", null),
-                User(null, "user5@user.org", "password", "User", "McUserson", null)
-        )
-
-        transaction(DbSettings.db) {
-            instructor.id = Users.insertUserAndGetId(instructor)
-            for (user in users) {
-                user.id = Users.insertUserAndGetId(user)
-            }
-        }
-        val course = Course(null, "Course", "A course", instructor.id!!, "Coding", 3f)
-        transaction(DbSettings.db) {
-            course.id = Courses.insertCourseAndGetId(course)
-        }
-
-        val ratings = arrayOf(
-                Rating(users[0].id!!, course.id!!, 3, "Meh"),
-                Rating(users[1].id!!, course.id!!, 1, "Shit"),
-                Rating(users[2].id!!, course.id!!, 5, "Divine"),
-                Rating(users[3].id!!, course.id!!, 4, "Good"),
-                Rating(users[4].id!!, course.id!!, 4, "Great!!")
-        )
-        transaction(DbSettings.db) {
-            for (rating in ratings) {
-                Ratings.insertRating(rating)
-            }
-        }
-        with(handleRequest(HttpMethod.Get, "${Routes.COURSES}/${course.id}")) {
-            assertEquals(HttpStatusCode.OK, response.status())
-            assertDoesNotThrow { gson.fromJson(response.content, CourseComponent::class.java) }
-            val courseComponent = gson.fromJson(response.content, CourseComponent::class.java)
-            assertEquals(instructor.id, courseComponent.instructor_id)
-            assertEquals("${instructor.firstName} ${instructor.lastName}", courseComponent.instructor_name)
-            assertEquals(course.id, courseComponent.course_id)
-            assertEquals(course.name, courseComponent.course_name)
-            assertEquals(course.category, courseComponent.course_category)
-            assertEquals(course.description, courseComponent.course_description)
-            assertEquals(course.rate, courseComponent.course_rate)
-            assertEquals(3, courseComponent.course_rating)
-
-        }
-    }
-
-    @Test
-    fun getCourseNoRatings() : Unit = withTestApplication({
-        main(true)
-        courses_module()
-    }) {
-        val instructor = User(null, "instructor@course.org", "password", "The", "Instructor", null, true)
-
-        transaction(DbSettings.db) {
-            instructor.id = Users.insertUserAndGetId(instructor)
-        }
-        val course = Course(null, "Course", "A course", instructor.id!!, "Coding", 3f)
-        transaction(DbSettings.db) {
-            course.id = Courses.insertCourseAndGetId(course)
-        }
-
-        with(handleRequest(HttpMethod.Get, "${Routes.COURSES}/${course.id}")) {
-            assertEquals(HttpStatusCode.OK, response.status())
-            assertDoesNotThrow { gson.fromJson(response.content, CourseComponent::class.java) }
-            val courseComponent = gson.fromJson(response.content, CourseComponent::class.java)
-            assertEquals(instructor.id, courseComponent.instructor_id)
-            assertEquals("${instructor.firstName} ${instructor.lastName}", courseComponent.instructor_name)
-            assertEquals(course.id, courseComponent.course_id)
-            assertEquals(course.name, courseComponent.course_name)
-            assertEquals(course.category, courseComponent.course_category)
-            assertEquals(course.description, courseComponent.course_description)
-            assertEquals(course.rate, courseComponent.course_rate)
-            assertEquals(null, courseComponent.course_rating)
-
         }
     }
 
@@ -369,6 +286,90 @@ class TestCourses : BaseTest() {
     }
 
     @Test
+    fun getCourseWithRatings() : Unit = withTestApplication({
+        main(true)
+        courses_module()
+    }) {
+        val instructor = User(null, "instructor@course.org", "password", "The", "Instructor", null, true)
+        val users = arrayOf(
+                User(null, "user1@user.org", "password", "User", "McUserson", null),
+                User(null, "user2@user.org", "password", "User", "McUserson", null),
+                User(null, "user3@user.org", "password", "User", "McUserson", null),
+                User(null, "user4@user.org", "password", "User", "McUserson", null),
+                User(null, "user5@user.org", "password", "User", "McUserson", null)
+        )
+
+        transaction(DbSettings.db) {
+            instructor.id = Users.insertUserAndGetId(instructor)
+            for (user in users) {
+                user.id = Users.insertUserAndGetId(user)
+            }
+        }
+        val course = Course(null, "Course", "A course", instructor.id!!, "Coding", 3f)
+        transaction(DbSettings.db) {
+            course.id = Courses.insertCourseAndGetId(course)
+        }
+
+        val ratings = arrayOf(
+                Rating(users[0].id!!, course.id!!, 3, "Meh"),
+                Rating(users[1].id!!, course.id!!, 1, "Shit"),
+                Rating(users[2].id!!, course.id!!, 5, "Divine"),
+                Rating(users[3].id!!, course.id!!, 4, "Good"),
+                Rating(users[4].id!!, course.id!!, 4, "Great!!")
+        )
+        transaction(DbSettings.db) {
+            for (rating in ratings) {
+                Ratings.insertRating(rating)
+            }
+        }
+        with(handleRequest(HttpMethod.Get, "${Routes.COURSES}/${course.id}")) {
+            assertEquals(HttpStatusCode.OK, response.status())
+            assertDoesNotThrow { gson.fromJson(response.content, CourseComponent::class.java) }
+            val courseComponent = gson.fromJson(response.content, CourseComponent::class.java)
+            assertEquals(instructor.id, courseComponent.instructor_id)
+            assertEquals("${instructor.firstName} ${instructor.lastName}", courseComponent.instructor_name)
+            assertEquals(course.id, courseComponent.course_id)
+            assertEquals(course.name, courseComponent.course_name)
+            assertEquals(course.category, courseComponent.course_category)
+            assertEquals(course.description, courseComponent.course_description)
+            assertEquals(course.rate, courseComponent.course_rate)
+            assertEquals(3, courseComponent.course_rating)
+
+        }
+    }
+
+    @Test
+    fun getCourseNoRatings() : Unit = withTestApplication({
+        main(true)
+        courses_module()
+    }) {
+        val instructor = User(null, "instructor@course.org", "password", "The", "Instructor", null, true)
+
+        transaction(DbSettings.db) {
+            instructor.id = Users.insertUserAndGetId(instructor)
+        }
+        val course = Course(null, "Course", "A course", instructor.id!!, "Coding", 3f)
+        transaction(DbSettings.db) {
+            course.id = Courses.insertCourseAndGetId(course)
+        }
+
+        with(handleRequest(HttpMethod.Get, "${Routes.COURSES}/${course.id}")) {
+            assertEquals(HttpStatusCode.OK, response.status())
+            assertDoesNotThrow { gson.fromJson(response.content, CourseComponent::class.java) }
+            val courseComponent = gson.fromJson(response.content, CourseComponent::class.java)
+            assertEquals(instructor.id, courseComponent.instructor_id)
+            assertEquals("${instructor.firstName} ${instructor.lastName}", courseComponent.instructor_name)
+            assertEquals(course.id, courseComponent.course_id)
+            assertEquals(course.name, courseComponent.course_name)
+            assertEquals(course.category, courseComponent.course_category)
+            assertEquals(course.description, courseComponent.course_description)
+            assertEquals(course.rate, courseComponent.course_rate)
+            assertEquals(null, courseComponent.course_rating)
+
+        }
+    }
+
+    @Test
     fun getCoursesByParameters() : Unit = withTestApplication({
         main(true)
         users_module()
@@ -421,6 +422,7 @@ class TestCourses : BaseTest() {
                 }
             }
         }
+
         cookiesSession {
             val login: Login = Login(testUsers[1].email, testUsers[1].password)
             with(handleRequest(HttpMethod.Post, Routes.LOGIN) {
@@ -590,6 +592,77 @@ class TestCourses : BaseTest() {
         with(handleRequest(HttpMethod.Get, "${Routes.COURSES}?page=2&page_size=-1")) {
             assertEquals(HttpStatusCode.BadRequest, response.status())
             assertDoesNotThrow { gson.fromJson(response.content, Message::class.java) }
+        }
+    }
+
+    @Test
+    fun editCourse() : Unit = withTestApplication({
+        main(true)
+        session_module()
+        courses_module()
+    }) {
+        val user = User(null, "user@user.org", "password", "User", "McUserson", null, true)
+        transaction(DbSettings.db) {
+            user.id = Users.insertUserAndGetId(user)
+        }
+        val course = Course(null, "Course", "Description", user.id!!, "Coding", 5f)
+        transaction(DbSettings.db) {
+            course.id = Courses.insertCourseAndGetId(course)
+        }
+
+        cookiesSession {
+            with(handleRequest(HttpMethod.Post, Routes.LOGIN) {
+                addHeader(HttpHeaders.ContentType, ContentType.Application.Json.toString())
+                setBody(gson.toJson(Login(user.email, user.password)))
+            }) {
+                assertEquals(HttpStatusCode.OK, response.status())
+                assertDoesNotThrow { gson.fromJson(response.content, Message::class.java) }
+                assertNotNull(sessions.get<SessionAuth>())
+            }
+            var editCourseData = JsonObject()
+            editCourseData.addProperty("name", "Cheese Appreciation")
+            editCourseData.addProperty("description", "APPRECIATE THE CHEESE!")
+            with(handleRequest(HttpMethod.Patch, "${Routes.COURSES}/${course.id}"){
+                addHeader(HttpHeaders.ContentType, ContentType.Application.Json.toString())
+                setBody(gson.toJson(editCourseData))
+            }) {
+                assertEquals(HttpStatusCode.OK, response.status())
+                assertDoesNotThrow { gson.fromJson(response.content, Message::class.java) }
+            }
+
+            with(handleRequest(HttpMethod.Get, "${Routes.COURSES}/${course.id}")) {
+                assertEquals(HttpStatusCode.OK, response.status())
+                assertDoesNotThrow { gson.fromJson(response.content, CourseComponent::class.java) }
+                val editedCourseComponent = gson.fromJson(response.content, CourseComponent::class.java)
+                assertEquals(course.rate, editedCourseComponent.course_rate)
+                assertEquals(course.category, editedCourseComponent.course_category)
+                assertEquals("Cheese Appreciation", editedCourseComponent.course_name)
+                assertEquals("APPRECIATE THE CHEESE!", editedCourseComponent.course_description)
+                assertEquals(course.instructorId, editedCourseComponent.instructor_id)
+            }
+
+            editCourseData = JsonObject()
+            editCourseData.addProperty("description", "Seriously... cheese is amazing... It deserves the appreciation!")
+            editCourseData.addProperty("category", "Cooking")
+            editCourseData.addProperty("rate", 2.1f)
+            with(handleRequest(HttpMethod.Patch, "${Routes.COURSES}/${course.id}"){
+                addHeader(HttpHeaders.ContentType, ContentType.Application.Json.toString())
+                setBody(gson.toJson(editCourseData))
+            }) {
+                assertEquals(HttpStatusCode.OK, response.status())
+                assertDoesNotThrow { gson.fromJson(response.content, Message::class.java) }
+            }
+
+            with(handleRequest(HttpMethod.Get, "${Routes.COURSES}/${course.id}")) {
+                assertEquals(HttpStatusCode.OK, response.status())
+                assertDoesNotThrow { gson.fromJson(response.content, CourseComponent::class.java) }
+                val editedCourseComponent = gson.fromJson(response.content, CourseComponent::class.java)
+                assertEquals(2.1f, editedCourseComponent.course_rate)
+                assertEquals("Cooking", editedCourseComponent.course_category)
+                assertEquals("Cheese Appreciation", editedCourseComponent.course_name)
+                assertEquals("Seriously... cheese is amazing... It deserves the appreciation!", editedCourseComponent.course_description)
+                assertEquals(course.instructorId, editedCourseComponent.instructor_id)
+            }
         }
     }
 }
