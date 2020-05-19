@@ -231,6 +231,10 @@ fun Application.courses_module() {
                                     call.respond(HttpStatusCode.Forbidden, Message(FORBIDDEN))
                                 }
                             }
+                            catch (ex:NoSuchElementException) {
+                                log.error(ex.message)
+                                call.respond(HttpStatusCode.BadRequest, Message("Course doesn't exist!"))
+                            }
                             catch (ex:ExposedSQLException) {
                                 log.error(ex.message)
                                 call.respond(HttpStatusCode.BadRequest, Message("Database Error"))
