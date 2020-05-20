@@ -48,13 +48,25 @@ const Results = styled.section`
 function Home() {
   const { register, handleSubmit } = useForm();
 
-  const onSubmit = handleSubmit(form => {
+  const onSubmit = handleSubmit((form) => {
     console.log('onsubmit', form);
   });
 
   const dispatch = useDispatch();
   const categories = useSelector((state: RootState) => state.app.categories);
-
+  const placeHoloders = [
+    '../../../public/images/athelete.jpg',
+    '../../public/images/athelete.jpg',
+    '../public/images/athelete.jpg',
+    '../../../../public/images/athelete.jpg',
+    '../../../public/images/athelete.jpg',
+    '../../../public/images/athelete.jpg',
+    '../../../public/images/athelete.jpg',
+    '../../../public/images/athelete.jpg',
+    '../../../public/images/athelete.jpg',
+    '../../../public/images/athelete.jpg',
+    '../../../public/images/athelete.jpg',
+  ];
   return (
     <Container>
       <h1>Learning for anyone, anywhere</h1>
@@ -63,18 +75,11 @@ function Home() {
         <CategoryDropdown title="All Skills" register={register} name="category" />
       </SearchField>
       <Results>
-        {Array(10)
-          .fill(null)
-          .map(() => (
-            <Card h="350px" w="300px" flexDirection="column" align="center">
-              <HomeCard
-                classTitle="class title"
-                instructor="instructor name"
-                rate={22}
-                rating={3}
-              />
-            </Card>
-          ))}
+        {placeHoloders.map(() => (
+          <Card h="350px" w="300px" flexDirection="column" align="center">
+            <HomeCard classTitle="class title" instructor="instructor name" rate={22} rating={3} />
+          </Card>
+        ))}
       </Results>
     </Container>
   );
