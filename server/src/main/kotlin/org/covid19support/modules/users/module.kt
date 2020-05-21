@@ -1,6 +1,6 @@
 package org.covid19support.modules.users
 
-import com.auth0.jwt.interfaces.DecodedJWT
+import com.google.gson.JsonSyntaxException
 import io.ktor.application.*
 import io.ktor.http.HttpStatusCode
 import io.ktor.request.receive
@@ -20,8 +20,10 @@ import org.covid19support.authentication.Token
 import org.covid19support.constants.*
 import java.lang.IllegalStateException
 
-//TODO Investigate What errors can be thrown on delete
-//TODO Investigate how to check when a delete fails
+//TODO Lookup how to cancel a transaction (or perhaps just check before the transaction if role is being changed)
+//TODO Logout user on email or role change (or at least, delete the old token and create a new one
+//TODO Edit User overwrites isInstructor to false if nothing is provided
+//TODO invalid data check doesn't work the way I thought I did... the invalid state exception was being thrown on the insert rather than the receive command
 
 fun Application.users_module() {
     routing {
@@ -56,19 +58,39 @@ fun Application.users_module() {
                     var id:Int = -1
                     log.info(newUser.toString())
                     try {
-                        val passhash = BCrypt.hashpw(newUser.password, BCrypt.gensalt())
-                        transaction (DbSettings.db) {
-                            id = Users.insertAndGetId {
-                                it[email] = newUser.email
-                                it[password] = passhash
-                                it[first_name] = newUser.firstName
-                                it[last_name] = newUser.lastName
-                                it[description] = newUser.description
-                            }.value
+                        var canAdd = true
+                        var addingPrivilegedUser = false
+                        if (newUser.role != Role.NORMAL.value && newUser.role != null) {
+                            val authenticator = Authenticator(call)
+                            if (authenticator.authenticate()) {
+                                if (authenticator.authorize(Role.ADMIN)) {
+                                    addingPrivilegedUser = true
+                                }
+                                else {
+                                    canAdd = false
+                                }
+                            }
+                            else {
+                                canAdd = false
+                            }
                         }
-                        newUser.id = id
-                        call.sessions.set(SessionAuth(Token.create(id, newUser.email, newUser.role)))
-                        call.respond(HttpStatusCode.Created, newUser)
+                        if (canAdd) {
+                            val passhash = BCrypt.hashpw(newUser.password, BCrypt.gensalt())
+                            transaction (DbSettings.db) {
+                                id = Users.insertAndGetId {
+                                    it[email] = newUser.email
+                                    it[password] = passhash
+                                    it[first_name] = newUser.firstName
+                                    it[last_name] = newUser.lastName
+                                    it[description] = newUser.description
+                                }.value
+                            }
+                            newUser.id = id
+                            if (!addingPrivilegedUser) {
+                                call.sessions.set(SessionAuth(Token.create(id, newUser.email, newUser.role)))
+                            }
+                            call.respond(HttpStatusCode.Created, newUser)
+                        }
                     }
                     catch (ex:ExposedSQLException) {
                         log.error(ex.message)
@@ -80,6 +102,11 @@ fun Application.users_module() {
                     }
                 }
                 catch(ex:IllegalStateException) {
+                    log.error(ex.message)
+                    call.respond(HttpStatusCode.BadRequest, Message(INVALID_BODY))
+                }
+                catch(ex:JsonSyntaxException) {
+                    log.error(ex.message)
                     call.respond(HttpStatusCode.BadRequest, Message(INVALID_BODY))
                 }
             }
@@ -110,7 +137,76 @@ fun Application.users_module() {
                 }
 
                 patch {
+                    val authenticator = Authenticator(call)
+                    if (authenticator.authenticate()) {
+                        if (authenticator.authorize(Role.NORMAL)) {
+                            val id:Int? = call.parameters["id"]!!.toIntOrNull()
+                            if (id != null) {
+                                try {
+                                    val userInfo: User = call.receive()
+                                    var canEdit = false
+                                    if (authenticator.getRole()!! > Role.MODERATOR) {
+                                        canEdit = true
+                                    }
+                                    else if (id == authenticator.getID()) {
+                                        if (userInfo.role == null || userInfo.role == Role.NORMAL.value) {
+                                            canEdit = true
+                                        }
+                                    }
+                                    if (canEdit) {
+                                        var result = 0
+                                        transaction(DbSettings.db) {
+                                            result = Users.update({Users.id eq id}) {
+                                                if (userInfo.email != null) {
+                                                    it[email] = userInfo.email
+                                                }
+                                                if (userInfo.password != null) {
+                                                    it[password] = BCrypt.hashpw(userInfo.password, BCrypt.gensalt())
+                                                }
+                                                if (userInfo.firstName != null) {
+                                                    it[first_name] = userInfo.firstName
+                                                }
+                                                if (userInfo.lastName != null) {
+                                                    it[last_name] = userInfo.lastName
+                                                }
+                                                if (userInfo.description != null) {
+                                                    it[description] = userInfo.description
+                                                }
+                                                if (userInfo.isInstructor != null) {
+                                                    it[is_instructor] = userInfo.isInstructor
+                                                }
 
+                                                if (userInfo.role != null) {
+                                                    it[role] = userInfo.role
+                                                }
+                                            }
+                                        }
+                                        if (result == 1) {
+                                            call.respond(HttpStatusCode.OK, Message("Successfully updated user!"))
+                                        }
+                                        else {
+                                            call.respond(HttpStatusCode.BadRequest, Message("User does not exist or no data was provided to update!"))
+                                        }
+
+                                    }
+                                    else {
+                                        call.respond(HttpStatusCode.Forbidden, Message(FORBIDDEN))
+                                    }
+                                }
+                                catch (ex:ExposedSQLException) {
+                                    log.error(ex.message)
+                                    call.respond(HttpStatusCode.BadRequest, Message("Database Error"))
+                                }
+                                catch (ex:JsonSyntaxException) {
+                                    log.error(ex.message)
+                                    call.respond(HttpStatusCode.BadRequest, Message(INVALID_BODY))
+                                }
+                            }
+                            else {
+                                call.respond(HttpStatusCode.BadRequest, Message("Must pass an integer value!"))
+                            }
+                        }
+                    }
                 }
 
                 delete {
@@ -118,8 +214,7 @@ fun Application.users_module() {
                     if (authenticator.authenticate()) {
                         if (authenticator.authorize(Role.NORMAL)) {
                             val id:Int? = call.parameters["id"]!!.toIntOrNull()
-                            if (id != null)
-                            {
+                            if (id != null) {
                                 try {
                                     var canDelete = false
                                     if (authenticator.getRole()!! > Role.MODERATOR)
@@ -130,13 +225,20 @@ fun Application.users_module() {
                                         canDelete = true
                                     }
                                     if (canDelete) {
+                                        var deleteResult: Int = 0
                                         transaction(DbSettings.db) {
-                                            Users.deleteWhere { Users.id eq id }
+                                            deleteResult = Users.deleteWhere { Users.id eq id }
                                         }
-                                        if (id == authenticator.getID()) {
-                                            call.sessions.clear<SessionAuth>()
+                                        if (deleteResult == 1) {
+                                            if (id == authenticator.getID()) {
+                                                call.sessions.clear<SessionAuth>()
+                                            }
+                                            call.respond(HttpStatusCode.OK, Message(DELETED))
                                         }
-                                        call.respond(HttpStatusCode.OK, Message(DELETED))
+                                        else if (deleteResult == 0) {
+                                            call.respond(HttpStatusCode.BadRequest, Message("User was not deleted, likely cause was it did not exist in the first place."))
+                                        }
+
                                     }
                                     else {
                                         call.respond(HttpStatusCode.Forbidden, Message(FORBIDDEN))

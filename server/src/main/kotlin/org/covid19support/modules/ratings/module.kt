@@ -1,6 +1,7 @@
 package org.covid19support.modules.ratings
 
 import com.auth0.jwt.interfaces.DecodedJWT
+import com.google.gson.JsonSyntaxException
 import io.ktor.application.*
 import io.ktor.http.HttpStatusCode
 import io.ktor.request.receive
@@ -46,6 +47,11 @@ fun Application.ratings_module() {
                         }
                     }
                     catch (ex: IllegalStateException) {
+                        log.error(ex.message)
+                        call.respond(HttpStatusCode.BadRequest, Message(INVALID_BODY))
+                    }
+                    catch(ex: JsonSyntaxException) {
+                        log.error(ex.message)
                         call.respond(HttpStatusCode.BadRequest, Message(INVALID_BODY))
                     }
                 }

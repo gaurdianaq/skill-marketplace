@@ -4,6 +4,7 @@ import com.google.gson.JsonElement
 import com.google.gson.JsonObject
 import com.google.gson.JsonSerializationContext
 import com.google.gson.JsonSerializer
+import org.covid19support.authentication.Role
 import org.covid19support.modules.roles.Roles
 import org.jetbrains.exposed.dao.id.EntityID
 import org.jetbrains.exposed.dao.id.IntIdTable
@@ -18,8 +19,8 @@ data class User(
         val firstName: String,
         val lastName: String,
         val description: String?,
-        val isInstructor: Boolean = false,
-        val role: String = "Normal"
+        val isInstructor: Boolean? = false,
+        val role: String = Role.NORMAL.value
 )
 
 class UserSerializer : JsonSerializer<User> {
@@ -55,7 +56,7 @@ object Users : IntIdTable("users") {
             it[first_name] = user.firstName
             it[last_name] = user.lastName
             it[description] = user.description
-            it[is_instructor] = user.isInstructor
+            it[is_instructor] = user.isInstructor!!
             it[role] = user.role
         }.value
     }
@@ -69,7 +70,7 @@ object Users : IntIdTable("users") {
             it[first_name] = user.firstName
             it[last_name] = user.lastName
             it[description] = user.description
-            it[is_instructor] = user.isInstructor
+            it[is_instructor] = user.isInstructor!!
             it[role] = user.role
         }
     }

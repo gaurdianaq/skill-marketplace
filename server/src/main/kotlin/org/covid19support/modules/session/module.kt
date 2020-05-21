@@ -1,6 +1,7 @@
 package org.covid19support.modules.session
 
 import com.auth0.jwt.interfaces.DecodedJWT
+import com.google.gson.JsonSyntaxException
 import io.ktor.application.*
 import io.ktor.http.*
 import io.ktor.request.*
@@ -66,6 +67,11 @@ fun Application.session_module() {
                         }
                     }
                     catch(ex:IllegalStateException) {
+                        log.error(ex.message)
+                        call.respond(HttpStatusCode.BadRequest, Message(INVALID_BODY))
+                    }
+                    catch(ex: JsonSyntaxException) {
+                        log.error(ex.message)
                         call.respond(HttpStatusCode.BadRequest, Message(INVALID_BODY))
                     }
                 }
