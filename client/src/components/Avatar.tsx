@@ -18,7 +18,16 @@ type Props = {
 function Avatar({ size = 50, srcImage, className = '' }: Props) {
   return (
     <Container className={className} size={size}>
-      <img src={athelete} alt="../../public/images/athelete.jpg" />
+      <img
+        src={athelete}
+        alt="../../public/images/athelete.jpg"
+        style={{
+          width: '100%',
+          height: '100%',
+          borderRadius: '100%',
+          objectFit: 'cover',
+        }}
+      />
     </Container>
   );
 }

@@ -66,6 +66,7 @@ function Home() {
     '../../../public/images/athelete.jpg',
     '../../../public/images/athelete.jpg',
     '../../../public/images/athelete.jpg',
+    "../"
   ];
   return (
     <Container>
