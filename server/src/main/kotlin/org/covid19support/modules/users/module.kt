@@ -1,5 +1,6 @@
 package org.covid19support.modules.users
 
+import com.google.gson.JsonObject
 import com.google.gson.JsonSyntaxException
 import io.ktor.application.*
 import io.ktor.http.HttpStatusCode
@@ -18,6 +19,7 @@ import org.jetbrains.exposed.exceptions.*
 import org.mindrot.jbcrypt.BCrypt
 import org.covid19support.authentication.Token
 import org.covid19support.constants.*
+import java.lang.ClassCastException
 import java.lang.IllegalStateException
 
 //TODO Lookup how to cancel a transaction (or perhaps just check before the transaction if role is being changed)
@@ -143,13 +145,19 @@ fun Application.users_module() {
                         val id:Int? = call.parameters["id"]!!.toIntOrNull()
                         if (id != null) {
                             try {
-                                val userInfo: User = call.receive()
+                                val userInfo: JsonObject = call.receive()
                                 var canEdit = false
                                 if (authenticator.getRole()!! > Role.MODERATOR) {
                                     canEdit = true
                                 }
                                 else if (id == authenticator.getID()) {
-                                    if (userInfo.role == null || userInfo.role == Role.NORMAL.value) {
+                                    if (userInfo.has("role")) {
+                                        val role: String = userInfo.getAsJsonPrimitive("role").asString
+                                        if (role == Role.NORMAL.value) {
+                                            canEdit = true
+                                        }
+                                    }
+                                    else {
                                         canEdit = true
                                     }
                                 }
@@ -157,27 +165,27 @@ fun Application.users_module() {
                                     var result = 0
                                     transaction(DbSettings.db) {
                                         result = Users.update({Users.id eq id}) {
-                                            if (userInfo.email != null) {
-                                                it[email] = userInfo.email
+                                            if (userInfo.has("email")) {
+                                                it[email] = userInfo.getAsJsonPrimitive("email").asString
                                             }
-                                            if (userInfo.password != null) {
-                                                it[password] = BCrypt.hashpw(userInfo.password, BCrypt.gensalt())
+                                            if (userInfo.has("password")) {
+                                                it[password] = BCrypt.hashpw(userInfo.getAsJsonPrimitive("password").asString, BCrypt.gensalt())
                                             }
-                                            if (userInfo.firstName != null) {
-                                                it[first_name] = userInfo.firstName
+                                            if (userInfo.has("firstName")) {
+                                                it[first_name] = userInfo.getAsJsonPrimitive("firstName").asString
                                             }
-                                            if (userInfo.lastName != null) {
-                                                it[last_name] = userInfo.lastName
+                                            if (userInfo.has("lastName")) {
+                                                it[last_name] = userInfo.getAsJsonPrimitive("lastName").asString
                                             }
-                                            if (userInfo.description != null) {
-                                                it[description] = userInfo.description
+                                            if (userInfo.has("description")) {
+                                                it[description] = userInfo.getAsJsonPrimitive("description").asString
                                             }
-                                            if (userInfo.isInstructor != null) {
-                                                it[is_instructor] = userInfo.isInstructor
+                                            if (userInfo.has("isInstructor")) {
+                                                it[is_instructor] = userInfo.getAsJsonPrimitive("isInstructor").asBoolean
                                             }
 
-                                            if (userInfo.role != null) {
-                                                it[role] = userInfo.role
+                                            if (userInfo.has("role")) {
+                                                it[role] = userInfo.getAsJsonPrimitive("role").asString
                                             }
                                         }
                                     }
@@ -196,13 +204,21 @@ fun Application.users_module() {
                                     call.respond(HttpStatusCode.Forbidden, Message(FORBIDDEN))
                                 }
                             }
-                            catch (ex:ExposedSQLException) {
+                            catch (ex:NoSuchElementException) {
                                 log.error(ex.message)
-                                call.respond(HttpStatusCode.BadRequest, Message("Database Error"))
+                                call.respond(HttpStatusCode.BadRequest, Message("Course doesn't exist!"))
+                            }
+                            catch (ex: ClassCastException) {
+                                log.error(ex.message)
+                                call.respond(HttpStatusCode.BadRequest, Message(INVALID_BODY))
                             }
                             catch (ex:JsonSyntaxException) {
                                 log.error(ex.message)
                                 call.respond(HttpStatusCode.BadRequest, Message(INVALID_BODY))
+                            }
+                            catch (ex:ExposedSQLException) {
+                                log.error(ex.message)
+                                call.respond(HttpStatusCode.BadRequest, Message("Database Error"))
                             }
                         }
                         else {

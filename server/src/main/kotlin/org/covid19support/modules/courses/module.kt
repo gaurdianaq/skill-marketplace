@@ -1,6 +1,6 @@
 package org.covid19support.modules.courses
 
-import com.auth0.jwt.interfaces.DecodedJWT
+import com.google.gson.JsonObject
 import com.google.gson.JsonSyntaxException
 import io.ktor.application.*
 import io.ktor.http.HttpStatusCode
@@ -21,6 +21,7 @@ import org.covid19support.modules.users.*
 import org.jetbrains.exposed.exceptions.ExposedSQLException
 import org.jetbrains.exposed.sql.*
 import org.jetbrains.exposed.sql.transactions.transaction
+import java.lang.ClassCastException
 import java.lang.IllegalStateException
 
 fun Application.courses_module() {
@@ -182,7 +183,7 @@ fun Application.courses_module() {
                         val id:Int? = call.parameters["id"]!!.toIntOrNull()
                         if (id != null) {
                             try {
-                                val newCourseInfo: Course = call.receive()
+                                val newCourseInfo: JsonObject = call.receive()
                                 lateinit var currentCourseInfo: Course
                                 transaction(DbSettings.db) {
                                     val result = Courses.select { Courses.id eq id }.first()
@@ -200,17 +201,17 @@ fun Application.courses_module() {
                                     var result = 0
                                     transaction(DbSettings.db) {
                                         result = Courses.update({ Courses.id eq id }) {
-                                            if (newCourseInfo.name != null) {
-                                                it[name] = newCourseInfo.name
+                                            if (newCourseInfo.has("name")) {
+                                                it[name] = newCourseInfo.getAsJsonPrimitive("name").asString
                                             }
-                                            if (newCourseInfo.category != null) {
-                                                it[category] = newCourseInfo.category
+                                            if (newCourseInfo.has("category")) {
+                                                it[category] = newCourseInfo.getAsJsonPrimitive("category").asString
                                             }
-                                            if (newCourseInfo.description != null) {
-                                                it[description] = newCourseInfo.description
+                                            if (newCourseInfo.has("description")) {
+                                                it[description] = newCourseInfo.getAsJsonPrimitive("description").asString
                                             }
-                                            if (newCourseInfo.rate > 0) {
-                                                it[rate] = newCourseInfo.rate
+                                            if (newCourseInfo.has("rate")) {
+                                                it[rate] = newCourseInfo.getAsJsonPrimitive("rate").asFloat
                                             }
                                         }
                                     }
@@ -235,13 +236,17 @@ fun Application.courses_module() {
                                 log.error(ex.message)
                                 call.respond(HttpStatusCode.BadRequest, Message("Course doesn't exist!"))
                             }
-                            catch (ex:ExposedSQLException) {
+                            catch (ex:ClassCastException) {
                                 log.error(ex.message)
-                                call.respond(HttpStatusCode.BadRequest, Message("Database Error"))
+                                call.respond(HttpStatusCode.BadRequest, Message(INVALID_BODY))
                             }
                             catch (ex:JsonSyntaxException) {
                                 log.error(ex.message)
                                 call.respond(HttpStatusCode.BadRequest, Message(INVALID_BODY))
+                            }
+                            catch (ex:ExposedSQLException) {
+                                log.error(ex.message)
+                                call.respond(HttpStatusCode.BadRequest, Message("Database Error"))
                             }
                         }
                         else {

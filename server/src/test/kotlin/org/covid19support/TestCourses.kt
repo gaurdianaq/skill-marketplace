@@ -24,8 +24,6 @@ import kotlin.test.*
 
 class TestCourses : BaseTest() {
     //TODO Add Course Text Fields too Long
-    //TODO Edit Course database constraint
-    //TODO Edit Course invalid data types
     //TODO Delete Courses
     //TODO Delete Courses
     //TODO Delete Courses Unauthenticated
@@ -661,6 +659,110 @@ class TestCourses : BaseTest() {
                 assertEquals("Cheese Appreciation", editedCourseComponent.course_name)
                 assertEquals("Seriously... cheese is amazing... It deserves the appreciation!", editedCourseComponent.course_description)
                 assertEquals(course.instructorId, editedCourseComponent.instructor_id)
+            }
+        }
+    }
+
+    @Test
+    fun editCourseBadDataValidField() : Unit = withTestApplication({
+        main(true)
+        session_module()
+        courses_module()
+    }) {
+        val instructor = User(null, "instructor@instructor.cra", "password", "Doctor", "No!", null, true)
+        transaction(DbSettings.db) {
+            instructor.id = Users.insertUserAndGetId(instructor)
+        }
+
+        val course = Course(null, "Course", "Description", instructor.id!!, "Coding", 5f)
+        transaction(DbSettings.db) {
+            course.id = Courses.insertCourseAndGetId(course)
+        }
+
+        val editData = JsonObject()
+        val subObject = JsonObject()
+        subObject.addProperty("blah", "no")
+        editData.addProperty("name", 5)
+        editData.add("description", subObject)
+        cookiesSession {
+            with(handleRequest(HttpMethod.Post, Routes.LOGIN){
+                addHeader(HttpHeaders.ContentType, ContentType.Application.Json.toString())
+                setBody(gson.toJson(Login(instructor.email, instructor.password)))
+            }) {
+                assertEquals(HttpStatusCode.OK, response.status())
+                assertDoesNotThrow { gson.fromJson(response.content, User::class.java) }
+                assertNotNull(sessions.get<SessionAuth>())
+            }
+
+            with(handleRequest(HttpMethod.Patch, "${Routes.COURSES}/${course.id}"){
+                addHeader(HttpHeaders.ContentType, ContentType.Application.Json.toString())
+                setBody(gson.toJson(editData))
+            }) {
+                assertEquals(HttpStatusCode.BadRequest, response.status())
+                assertDoesNotThrow { gson.fromJson(response.content, Message::class.java) }
+            }
+
+            with(handleRequest(HttpMethod.Get, "${Routes.COURSES}/${course.id}")) {
+                assertEquals(HttpStatusCode.OK, response.status())
+                assertDoesNotThrow { gson.fromJson(response.content, CourseComponent::class.java) }
+                val courseComponent = gson.fromJson(response.content, CourseComponent::class.java)
+                assertEquals(course.name, courseComponent.course_name)
+                assertEquals(course.description, courseComponent.course_description)
+                assertEquals(course.category, courseComponent.course_category)
+                assertEquals(course.rate, courseComponent.course_rate)
+                assertEquals(course.instructorId, courseComponent.instructor_id)
+            }
+        }
+    }
+
+    @Test
+    fun editCourseNoValidFields() : Unit = withTestApplication({
+        main(true)
+        session_module()
+        courses_module()
+    }) {
+        val instructor = User(null, "instructor@instructor.cra", "password", "Doctor", "No!", null, true)
+        transaction(DbSettings.db) {
+            instructor.id = Users.insertUserAndGetId(instructor)
+        }
+
+        val course = Course(null, "Course", "Description", instructor.id!!, "Coding", 5f)
+        transaction(DbSettings.db) {
+            course.id = Courses.insertCourseAndGetId(course)
+        }
+
+        val editData = JsonObject()
+        val subObject = JsonObject()
+        subObject.addProperty("blah", "no")
+        editData.addProperty("cheese", 5)
+        editData.add("crazy", subObject)
+        cookiesSession {
+            with(handleRequest(HttpMethod.Post, Routes.LOGIN){
+                addHeader(HttpHeaders.ContentType, ContentType.Application.Json.toString())
+                setBody(gson.toJson(Login(instructor.email, instructor.password)))
+            }) {
+                assertEquals(HttpStatusCode.OK, response.status())
+                assertDoesNotThrow { gson.fromJson(response.content, User::class.java) }
+                assertNotNull(sessions.get<SessionAuth>())
+            }
+
+            with(handleRequest(HttpMethod.Patch, "${Routes.COURSES}/${course.id}"){
+                addHeader(HttpHeaders.ContentType, ContentType.Application.Json.toString())
+                setBody(gson.toJson(editData))
+            }) {
+                assertEquals(HttpStatusCode.BadRequest, response.status())
+                assertDoesNotThrow { gson.fromJson(response.content, Message::class.java) }
+            }
+
+            with(handleRequest(HttpMethod.Get, "${Routes.COURSES}/${course.id}")) {
+                assertEquals(HttpStatusCode.OK, response.status())
+                assertDoesNotThrow { gson.fromJson(response.content, CourseComponent::class.java) }
+                val courseComponent = gson.fromJson(response.content, CourseComponent::class.java)
+                assertEquals(course.name, courseComponent.course_name)
+                assertEquals(course.description, courseComponent.course_description)
+                assertEquals(course.category, courseComponent.course_category)
+                assertEquals(course.rate, courseComponent.course_rate)
+                assertEquals(course.instructorId, courseComponent.instructor_id)
             }
         }
     }
