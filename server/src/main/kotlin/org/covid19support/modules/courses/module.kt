@@ -7,14 +7,14 @@ import io.ktor.http.HttpStatusCode
 import io.ktor.request.*
 import io.ktor.routing.*
 import io.ktor.response.*
+import io.ktor.sessions.clear
+import io.ktor.sessions.sessions
 import org.covid19support.DbSettings
 import org.covid19support.SQLState
+import org.covid19support.SessionAuth
 import org.covid19support.authentication.Authenticator
 import org.covid19support.authentication.Role
-import org.covid19support.constants.FORBIDDEN
-import org.covid19support.constants.INTERNAL_ERROR
-import org.covid19support.constants.INVALID_BODY
-import org.covid19support.constants.Message
+import org.covid19support.constants.*
 import org.covid19support.modules.ratings.Rating
 import org.covid19support.modules.ratings.Ratings
 import org.covid19support.modules.users.*
@@ -252,6 +252,51 @@ fun Application.courses_module() {
                         else {
                             call.respond(HttpStatusCode.BadRequest, Message("Must pass an integer value!"))
                         }
+                    }
+                }
+            }
+
+            delete {
+                val authenticator = Authenticator(call)
+                if (authenticator.authenticate()) {
+                    val id:Int? = call.parameters["id"]!!.toIntOrNull()
+                    if (id != null) {
+                        try {
+                            var canDelete = false
+                            if (authenticator.getRole()!! > Role.MODERATOR)
+                            {
+                                canDelete = true
+                            }
+                            else if (id == authenticator.getID()) {
+                                canDelete = true
+                            }
+                            if (canDelete) {
+                                var deleteResult: Int = 0
+                                transaction(DbSettings.db) {
+                                    deleteResult = Courses.deleteWhere { Courses.id eq id }
+                                }
+                                if (deleteResult == 1) {
+                                    if (id == authenticator.getID()) {
+                                        call.sessions.clear<SessionAuth>()
+                                    }
+                                    call.respond(HttpStatusCode.OK, Message(DELETED))
+                                }
+                                else if (deleteResult == 0) {
+                                    call.respond(HttpStatusCode.BadRequest, Message("User was not deleted, likely cause was it did not exist in the first place."))
+                                }
+
+                            }
+                            else {
+                                call.respond(HttpStatusCode.Forbidden, Message(FORBIDDEN))
+                            }
+                        }
+                        catch (ex:ExposedSQLException) {
+                            log.error(ex.message)
+                            call.respond(HttpStatusCode.BadRequest, Message("Something went wrong, will implement more detailed response later."))
+                        }
+                    }
+                    else {
+                        call.respond(HttpStatusCode.BadRequest, Message("Must pass an integer value!"))
                     }
                 }
             }

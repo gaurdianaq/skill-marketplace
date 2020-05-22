@@ -29,6 +29,7 @@ class TestCourses : BaseTest() {
     //TODO Delete Courses Unauthenticated
     //TODO Delete Courses Unauthorized
     //TODO Delete Course when Users have Booked
+    //TODO Delete Course when there are Ratings
 
     @Test
     fun addCourses() : Unit = withTestApplication({

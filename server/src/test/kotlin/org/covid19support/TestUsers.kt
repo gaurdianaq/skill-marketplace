@@ -8,6 +8,10 @@ import io.ktor.sessions.get
 import io.ktor.sessions.sessions
 import org.covid19support.authentication.Role
 import org.covid19support.constants.Message
+import org.covid19support.modules.courses.Course
+import org.covid19support.modules.courses.CourseComponent
+import org.covid19support.modules.courses.Courses
+import org.covid19support.modules.courses.courses_module
 import org.covid19support.modules.session.Login
 import org.covid19support.modules.session.session_module
 import org.covid19support.modules.users.User
@@ -23,6 +27,7 @@ class TestUsers : BaseTest() {
     //TODO Add Users Text Too Long
     //TODO Invalid Email & Password (once validation is added)
     //TODO Test Edit User id should not change anything (Should this throw a bad request or simply be ignored? Probably throw a bad request)
+    //TODO Delete User who has courses
 
 
     @Test
@@ -483,6 +488,54 @@ class TestUsers : BaseTest() {
                 assertEquals(HttpStatusCode.BadRequest, response.status())
                 assertDoesNotThrow { gson.fromJson(response.content, Message::class.java) }
             }
+        }
+    }
+
+    @Test
+    fun deleteUserHasCourses() : Unit = withTestApplication({
+        main(true)
+        users_module()
+        courses_module()
+    }) {
+        val instructor = User(null, "instructor@teach.net", "password", "Instructor", "Bob", null)
+        cookiesSession {
+            with(handleRequest(HttpMethod.Post, Routes.USERS){
+                addHeader(HttpHeaders.ContentType, ContentType.Application.Json.toString())
+                setBody(gson.toJson(instructor))
+            }) {
+                assertEquals(HttpStatusCode.Created, response.status())
+                assertDoesNotThrow { gson.fromJson(response.content, User::class.java)}
+                instructor.id = gson.fromJson(response.content, User::class.java).id
+            }
+            val courses = arrayOf(
+                    Course(null, "Course", "Description", instructor.id!!, "Cooking", 2.0f),
+                    Course(null, "Course", "Description", instructor.id!!, "Coding", 0.5f),
+                    Course(null, "Course", "Description", instructor.id!!, "Coding", 3f)
+            )
+
+            transaction(DbSettings.db) {
+                for (course in courses) {
+                    course.id = Courses.insertCourseAndGetId(course)
+                }
+            }
+
+            with(handleRequest(HttpMethod.Get, Routes.COURSES)) {
+                assertEquals(HttpStatusCode.OK, response.status())
+                assertDoesNotThrow { gson.fromJson(response.content, Array<CourseComponent>::class.java) }
+                val courseComponents = gson.fromJson(response.content, Array<CourseComponent>::class.java)
+                assertEquals(3, courseComponents.size)
+            }
+
+            with(handleRequest(HttpMethod.Delete, "${Routes.USERS}/${instructor.id}")) {
+                assertEquals(HttpStatusCode.OK, response.status())
+                assertDoesNotThrow { gson.fromJson(response.content, Message::class.java) }
+            }
+
+            with(handleRequest(HttpMethod.Get, Routes.COURSES)) {
+                assertEquals(HttpStatusCode.NoContent, response.status())
+                assertDoesNotThrow { gson.fromJson(response.content, Message::class.java) }
+            }
+
         }
     }
 
