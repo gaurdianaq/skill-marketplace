@@ -13,7 +13,7 @@ import { useSelector } from 'react-redux';
 import { RootState } from '../redux/reducer';
 
 const Container = styled.header`
-  height: ${p => p.theme.headerHeight};
+  height: ${(p) => p.theme.headerHeight};
   box-shadow: 0px 3px 7px 0px rgba(0, 0, 0, 0.1);
   display: flex;
   width: 100%;
@@ -28,8 +28,8 @@ const Nav = styled.nav`
     padding: 0 1rem;
     text-transform: uppercase;
     text-decoration: none;
-    color: ${p => p.theme.strokeColor};
-    font-family: ${p => p.theme.textFont};
+    color: ${(p) => p.theme.strokeColor};
+    font-family: ${(p) => p.theme.textFont};
   }
 `;
 
@@ -41,6 +41,23 @@ const Logo = styled.div`
   display: flex;
   justify-content: center;
   align-items: center;
+`;
+const LogInButton = styled.button`
+  height: 40px;
+  width: 120px;
+  border-radius: 10px;
+  background-color: white;
+  border-color: #3fcdcf;
+  color: #3fcdcf;
+`;
+
+const SignUpButton = styled.button`
+  height: 40px;
+  width: 120px;
+  border-radius: 10px;
+  background-color: #3fcdcf;
+  border: none;
+  color: white;
 `;
 
 function Header() {
@@ -64,8 +81,12 @@ function Header() {
           </>
         ) : (
           <>
-            <Link to={REGISTER_ROUTE}>Register</Link>
-            <Link to={LOGIN_ROUTE}>Login</Link>
+            <a href={LOGIN_ROUTE}>
+              <LogInButton>LOGIN</LogInButton>
+            </a>
+            <a href={REGISTER_ROUTE}>
+              <SignUpButton>SIGNUP</SignUpButton>
+            </a>
           </>
         )}
       </Nav>

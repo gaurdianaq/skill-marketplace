@@ -27,6 +27,9 @@ const SearchField = styled.form`
     padding: 2px 23px 2px 30px;
     width: 250px;
   }
+  input.middle:focus {
+    outline-width: 0;
+  }
   select {
     border-top-right-radius: 0%;
     border-bottom-right-radius: 0%;
