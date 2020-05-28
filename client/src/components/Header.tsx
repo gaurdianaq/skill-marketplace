@@ -36,19 +36,26 @@ const Nav = styled.nav`
 const Logo = styled.div`
   height: 100%;
   width: 200px;
-  background-color: pink;
   color: black;
   display: flex;
   justify-content: center;
   align-items: center;
+  font-family: 'Montserrat', sans-serif;
+  font-weight: 700;
 `;
+
+const LogoLink = styled.link`
+  text-decoration: none;
+`;
+
 const LogInButton = styled.button`
   height: 40px;
   width: 120px;
   border-radius: 10px;
-  background-color: white;
-  border-color: #3fcdcf;
+  border: 2px solid #3fcdcf;
+  background: transparent;
   color: #3fcdcf;
+  padding: 14px 28px;
 `;
 
 const SignUpButton = styled.button`
@@ -66,11 +73,11 @@ function Header() {
   return (
     <Container>
       <Logo>
-        <Link to="/">LOGO</Link>
+        <Link to="/" style={{ textDecoration: 'none' }}>
+          Logo.
+        </Link>
       </Logo>
       <Nav>
-        <Link to="/">Browse</Link>
-        {/* <a href="#">Inbox</a> */}
         {loggedIn ? (
           <>
             <a href="#">Inbox</a>
