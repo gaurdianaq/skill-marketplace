@@ -18,6 +18,7 @@ const Container = styled.header`
   display: flex;
   width: 100%;
   justify-content: space-between;
+  font-family: 'Montserrat', sans-serif;
 `;
 
 const Nav = styled.nav`
@@ -40,8 +41,8 @@ const Logo = styled.div`
   display: flex;
   justify-content: center;
   align-items: center;
-  font-family: 'Montserrat', sans-serif;
   font-weight: 700;
+  font-size: 22px;
 `;
 
 const LogoLink = styled.link`
@@ -49,19 +50,19 @@ const LogoLink = styled.link`
 `;
 
 const LogInButton = styled.button`
-  height: 40px;
-  width: 120px;
-  border-radius: 10px;
-  border: 2px solid #3fcdcf;
+  height: 47px;
+  width: 137px;
+  border-radius: 5px;
+  border: 1px solid #3fcdcf;
   background: transparent;
   color: #3fcdcf;
   padding: 14px 28px;
 `;
 
 const SignUpButton = styled.button`
-  height: 40px;
-  width: 120px;
-  border-radius: 10px;
+  height: 47px;
+  width: 137px;
+  border-radius: 5px;
   background-color: #3fcdcf;
   border: none;
   color: white;
@@ -80,11 +81,9 @@ function Header() {
       <Nav>
         {loggedIn ? (
           <>
-            <a href="#">Inbox</a>
             <Link to={EDIT_PROFILE_ROUTE}>
               <Avatar size={30} />
             </Link>
-            <Link to={BACKEND_LOGOUT_ROUTE}>Logout</Link>
           </>
         ) : (
           <>
@@ -92,7 +91,7 @@ function Header() {
               <LogInButton>LOGIN</LogInButton>
             </a>
             <a href={REGISTER_ROUTE}>
-              <SignUpButton>SIGNUP</SignUpButton>
+              <SignUpButton>SIGN UP</SignUpButton>
             </a>
           </>
         )}
