@@ -12,11 +12,18 @@ const Container = styled.main`
   display: flex;
   flex-direction: column;
   padding: 2rem 8rem;
+
+  @media only screen and (max-width: 950px) {
+    padding-left: 2%;
+    padding-right: 2%;
+  }
 `;
 
 const SearchField = styled.form`
   display: flex;
+  width: 100%;
   padding: 1rem;
+  align-items: stretch;
   input {
     border-radius: 5px;
     min-height: 30px;
@@ -25,7 +32,9 @@ const SearchField = styled.form`
     border-bottom-right-radius: 0;
     border-right: none;
     padding: 2px 23px 2px 30px;
-    width: 250px;
+    max-width: 500px;
+    min-width: 215px;
+    flex-grow: 4;
   }
   input.middle:focus {
     outline-width: 0;
@@ -42,6 +51,9 @@ const SearchField = styled.form`
     background-image: url("data:image/svg+xml;utf8,<svg version='1.1' xmlns='http://www.w3.org/2000/svg' xmlns:xlink='http://www.w3.org/1999/xlink' width='24' height='24' viewBox='0 0 24 24'><path fill='%23444' d='M7.406 7.828l4.594 4.594 4.594-4.594 1.406 1.406-6 6-6-6z'></path></svg>");
     background-position: 100% 50%;
     background-repeat: no-repeat;
+    flex-grow: 1;
+    min-width: 100px;
+    max-width: 200px;
   }
 `;
 
@@ -59,7 +71,9 @@ const Results = styled.section`
 const Search = styled.div`
   position: relative;
   display: flex;
-  min-width: 100px;
+  min-width: 50px;
+  align-content: stretch;
+  align-items: stretch;
 `;
 
 const SearchIcon = styled.img`
