@@ -58,20 +58,4 @@ open class Authenticator(val call: ApplicationCall) {
         }
         return true
     }
-
-    //check whether the user has the required authorization level to perform this action
-    //individual route will determine any additional details
-    suspend fun authorize(requiredRole: Role): Boolean {
-        if (decodedToken == null) {
-            call.respond(HttpStatusCode.Unauthorized, Message(UNAUTHORIZED))
-            return false
-        }
-        else {
-            if (getRole()!! >= requiredRole) {
-                return true
-            }
-        }
-        call.respond(HttpStatusCode.Forbidden, Message(FORBIDDEN))
-        return false
-    }
 }

@@ -1,6 +1,6 @@
 package org.covid19support.modules.courses
 
-import com.auth0.jwt.interfaces.DecodedJWT
+import com.google.gson.JsonObject
 import com.google.gson.JsonSyntaxException
 import io.ktor.application.*
 import io.ktor.http.HttpStatusCode
@@ -10,6 +10,8 @@ import io.ktor.response.*
 import org.covid19support.DbSettings
 import org.covid19support.SQLState
 import org.covid19support.authentication.Authenticator
+import org.covid19support.authentication.Role
+import org.covid19support.constants.FORBIDDEN
 import org.covid19support.constants.INTERNAL_ERROR
 import org.covid19support.constants.INVALID_BODY
 import org.covid19support.constants.Message
@@ -19,6 +21,7 @@ import org.covid19support.modules.users.*
 import org.jetbrains.exposed.exceptions.ExposedSQLException
 import org.jetbrains.exposed.sql.*
 import org.jetbrains.exposed.sql.transactions.transaction
+import java.lang.ClassCastException
 import java.lang.IllegalStateException
 
 fun Application.courses_module() {
@@ -143,11 +146,17 @@ fun Application.courses_module() {
                 get {
                     var course: Course? = null
                     val id: Int = call.parameters["id"]!!.toInt()
+                    val ratings: ArrayList<Rating> = arrayListOf()
+                    lateinit var instructor: User
                     transaction(DbSettings.db) {
                         val result: ResultRow? = Courses.select { Courses.id eq id }.firstOrNull()
 
                         if (result != null) {
                             course = Courses.toCourse(result)
+                            Ratings.select {Ratings.course_id eq id  }.forEach {
+                                ratings.add(Ratings.toRating(it))
+                            }
+                            instructor = Users.toUser(Users.select { Users.id eq course!!.instructorId }.first())
                         }
 
                     }
@@ -155,7 +164,94 @@ fun Application.courses_module() {
                         call.respond(HttpStatusCode.NoContent, Message("Course not found!"))
                     }
                     else {
-                        call.respond(course!!)
+                        var averageRating: Short? = null
+                        if (ratings.isNotEmpty()) {
+                            averageRating = 0
+                            for (rating in ratings) {
+                                averageRating = (averageRating!! + rating.ratingValue).toShort()
+                            }
+                            averageRating = (averageRating!! / ratings.size).toShort()
+                        }
+                        val courseComponent = CourseComponent(course!!.instructorId, "${instructor.firstName} ${instructor.lastName}", course!!.id!!, course!!.name, course!!.description, averageRating, course!!.category, course!!.rate)
+                        call.respond(HttpStatusCode.OK, courseComponent)
+                    }
+                }
+
+                patch {
+                    val authenticator = Authenticator(call)
+                    if (authenticator.authenticate()) {
+                        val id:Int? = call.parameters["id"]!!.toIntOrNull()
+                        if (id != null) {
+                            try {
+                                val newCourseInfo: JsonObject = call.receive()
+                                lateinit var currentCourseInfo: Course
+                                transaction(DbSettings.db) {
+                                    val result = Courses.select { Courses.id eq id }.first()
+                                    currentCourseInfo = Courses.toCourse(result)
+                                }
+                                var canEdit = false
+                                if (authenticator.getRole()!! > Role.MODERATOR) {
+                                    canEdit = true
+                                }
+                                else if (currentCourseInfo.instructorId == authenticator.getID()) {
+                                    canEdit = true
+                                }
+
+                                if (canEdit) {
+                                    var result = 0
+                                    transaction(DbSettings.db) {
+                                        result = Courses.update({ Courses.id eq id }) {
+                                            if (newCourseInfo.has("name")) {
+                                                it[name] = newCourseInfo.getAsJsonPrimitive("name").asString
+                                            }
+                                            if (newCourseInfo.has("category")) {
+                                                it[category] = newCourseInfo.getAsJsonPrimitive("category").asString
+                                            }
+                                            if (newCourseInfo.has("description")) {
+                                                it[description] = newCourseInfo.getAsJsonPrimitive("description").asString
+                                            }
+                                            if (newCourseInfo.has("rate")) {
+                                                it[rate] = newCourseInfo.getAsJsonPrimitive("rate").asFloat
+                                            }
+                                        }
+                                    }
+
+                                    when (result) {
+                                        1 -> {
+                                            call.respond(HttpStatusCode.OK, Message("Successfully updated user!"))
+                                        }
+                                        0 -> {
+                                            call.respond(HttpStatusCode.BadRequest, Message("Course does not exist or no data was provided to update!"))
+                                        }
+                                        else -> {
+                                            call.respond(HttpStatusCode.InternalServerError, Message(INTERNAL_ERROR))
+                                        }
+                                    }
+                                }
+                                else {
+                                    call.respond(HttpStatusCode.Forbidden, Message(FORBIDDEN))
+                                }
+                            }
+                            catch (ex:NoSuchElementException) {
+                                log.error(ex.message)
+                                call.respond(HttpStatusCode.BadRequest, Message("Course doesn't exist!"))
+                            }
+                            catch (ex:ClassCastException) {
+                                log.error(ex.message)
+                                call.respond(HttpStatusCode.BadRequest, Message(INVALID_BODY))
+                            }
+                            catch (ex:JsonSyntaxException) {
+                                log.error(ex.message)
+                                call.respond(HttpStatusCode.BadRequest, Message(INVALID_BODY))
+                            }
+                            catch (ex:ExposedSQLException) {
+                                log.error(ex.message)
+                                call.respond(HttpStatusCode.BadRequest, Message("Database Error"))
+                            }
+                        }
+                        else {
+                            call.respond(HttpStatusCode.BadRequest, Message("Must pass an integer value!"))
+                        }
                     }
                 }
             }

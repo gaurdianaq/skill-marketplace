@@ -22,6 +22,7 @@ class TestUsers : BaseTest() {
     //TODO Valid Format Returned (Description included when it exists and not included when it doesn't
     //TODO Add Users Text Too Long
     //TODO Invalid Email & Password (once validation is added)
+    //TODO Test Edit User id should not change anything (Should this throw a bad request or simply be ignored? Probably throw a bad request)
 
 
     @Test
@@ -854,5 +855,40 @@ class TestUsers : BaseTest() {
             }
         }
 
+    }
+
+    @Test
+    fun editUserDoesNotExist() : Unit = withTestApplication ({
+        main(true)
+        users_module()
+        session_module()
+    }) {
+        val admin = User(null, "admin@boss.com", "password", "Admin", "Bossface", null, false, Role.ADMIN.value)
+
+        transaction(DbSettings.db) {
+            admin.id = Users.insertUserAndGetId(admin)
+        }
+
+        cookiesSession {
+            with(handleRequest(HttpMethod.Post, Routes.LOGIN){
+                addHeader(HttpHeaders.ContentType, ContentType.Application.Json.toString())
+                setBody(gson.toJson(Login(admin.email, admin.password)))
+            }) {
+                assertEquals(HttpStatusCode.OK, response.status())
+                assertDoesNotThrow { gson.fromJson(response.content, User::class.java) }
+                assertNotNull(sessions.get<SessionAuth>())
+            }
+            val editData = JsonObject()
+            editData.addProperty("email", "cheeseman@dork.com")
+            editData.addProperty("lastName", "Goulda")
+
+            with(handleRequest(HttpMethod.Patch, "${Routes.USERS}/3"){
+                addHeader(HttpHeaders.ContentType, ContentType.Application.Json.toString())
+                setBody(gson.toJson(gson.toJson(editData)))
+            }) {
+                assertEquals(HttpStatusCode.BadRequest, response.status())
+                assertDoesNotThrow { gson.fromJson(response.content, Message::class.java) }
+            }
+        }
     }
 }

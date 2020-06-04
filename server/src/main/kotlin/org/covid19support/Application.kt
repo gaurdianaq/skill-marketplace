@@ -2,12 +2,11 @@ package org.covid19support
 
 import io.github.cdimascio.dotenv.Dotenv
 import io.ktor.application.*
-import io.ktor.config.MapApplicationConfig
 import io.ktor.features.*
 import io.ktor.gson.gson
 import io.ktor.sessions.*
 import org.covid19support.modules.courses.CourseComponent
-import org.covid19support.modules.courses.CourseComponentSerializer
+import org.covid19support.modules.courses.CourseComponentTypeAdapter
 import org.covid19support.modules.users.User
 import org.covid19support.modules.users.UserSerializer
 
@@ -25,7 +24,7 @@ fun Application.main(isTesting: Boolean = false) {
     install(ContentNegotiation) {
         gson {
             registerTypeAdapter(User::class.java, UserSerializer())
-            registerTypeAdapter(CourseComponent::class.java, CourseComponentSerializer())
+            registerTypeAdapter(CourseComponent::class.java, CourseComponentTypeAdapter())
         }
     }
     install(Sessions) {

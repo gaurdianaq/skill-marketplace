@@ -1,9 +1,6 @@
 package org.covid19support.modules.courses
 
-import com.google.gson.JsonElement
-import com.google.gson.JsonObject
-import com.google.gson.JsonSerializationContext
-import com.google.gson.JsonSerializer
+import com.google.gson.*
 import org.covid19support.modules.categories.Categories
 import org.covid19support.modules.users.User
 import org.covid19support.modules.users.Users
@@ -29,7 +26,7 @@ data class CourseComponent(
         val course_rate: Float
 )
 
-class CourseComponentSerializer : JsonSerializer<CourseComponent> {
+class CourseComponentTypeAdapter : JsonSerializer<CourseComponent>, JsonDeserializer<CourseComponent> {
     override fun serialize(src: CourseComponent?, srcType: Type?, context: JsonSerializationContext?): JsonElement {
         val output = JsonObject()
         val instructor = JsonObject()
@@ -47,6 +44,84 @@ class CourseComponentSerializer : JsonSerializer<CourseComponent> {
         output.add("instructor", instructor)
         output.add("course", course)
         return output
+    }
+
+    override fun deserialize(json: JsonElement?, courseComponentType: Type?, context: JsonDeserializationContext?): CourseComponent {
+        val component = json!!.asJsonObject
+        var instructor_id = -1
+        var instructor_name = ""
+        var course_id = -1
+        var course_name = ""
+        var course_description = ""
+        var course_rating: Short? = null
+        var course_category = ""
+        var course_rate = -1f
+
+        if (component.has("instructor") && component.has("course")) {
+            if(component.get("instructor").isJsonObject && component.get("course").isJsonObject) {
+                val instructor:JsonObject = component.get("instructor").asJsonObject
+                val course:JsonObject = component.get("course").asJsonObject
+                if (instructor.has("id") && instructor.has("name")) {
+                    if (instructor.get("id").isJsonPrimitive && instructor.get("name").isJsonPrimitive) {
+                        val instructor_id_element:JsonPrimitive = instructor.getAsJsonPrimitive("id")
+                        val instructor_name_element:JsonPrimitive = instructor.getAsJsonPrimitive("name")
+                        if (!instructor_id_element.isNumber || !instructor_name_element.isString) {
+                            throw JsonParseException("Invalid format provided!")
+                        }
+                        instructor_id = instructor_id_element.asInt
+                        instructor_name = instructor_name_element.asString
+                    }
+                    else {
+                        throw JsonParseException("Invalid format provided!")
+                    }
+                }
+                else {
+                    throw JsonParseException("Invalid format provided!")
+                }
+                if (course.has("id") && course.has("name") && course.has("description")
+                        && course.has("category") && course.has("rate")) {
+                    if (course.get("id").isJsonPrimitive && course.get("name").isJsonPrimitive && course.get("description").isJsonPrimitive
+                            && course.get("category").isJsonPrimitive && course.get("rate").isJsonPrimitive) {
+                        val course_id_element: JsonPrimitive = course.getAsJsonPrimitive("id")
+                        val course_name_element: JsonPrimitive = course.getAsJsonPrimitive("name")
+                        val course_description_element: JsonPrimitive = course.getAsJsonPrimitive("description")
+                        val course_category_element: JsonPrimitive = course.getAsJsonPrimitive("category")
+                        val course_rate_element: JsonPrimitive = course.getAsJsonPrimitive("rate")
+                        if (!course_id_element.isNumber || !course_name_element.isString || !course_description_element.isString || !course_category_element.isString || !course_rate_element.isNumber) {
+                            throw JsonParseException("Invalid format provided!")
+                        }
+                        course_id = course_id_element.asInt
+                        course_name = course_name_element.asString
+                        course_description = course_description_element.asString
+                        course_category = course_category_element.asString
+                        course_rate = course_rate_element.asFloat
+                        if (course.has("rating")) {
+                            if (course.get("rating").isJsonPrimitive) {
+                                if (course.get("rating").asJsonPrimitive.isNumber) {
+                                    course_rating = course.get("rating").asJsonPrimitive.asShort
+                                }
+                                else {
+                                    throw JsonParseException("Invalid format provided!")
+                                }
+                            }
+                            else {
+                                throw JsonParseException("Invalid format provided!")
+                            }
+                        }
+                    }
+                }
+                else {
+                    throw JsonParseException("Invalid format provided!")
+                }
+            }
+            else {
+                throw JsonParseException("Invalid format provided!")
+            }
+        }
+        else {
+            throw JsonParseException("Invalid format provided!")
+        }
+        return CourseComponent(instructor_id, instructor_name, course_id, course_name, course_description, course_rating, course_category, course_rate)
     }
 }
 
