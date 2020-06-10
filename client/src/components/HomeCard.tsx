@@ -20,7 +20,7 @@ const Content = styled.div`
     align-items: center;
     padding: 0.5rem;
     text-transform: uppercase;
-    color: ${p => p.theme.color.gray};
+    color: ${(p) => p.theme.color.gray};
     font-weight: 600;
   }
 `;
@@ -41,15 +41,16 @@ type Props = {
   classTitle: string;
   rating?: number;
   rate: number;
+  srcImage?: string;
 };
 
-function Card({ instructor, classTitle, rating = 0, rate }: Props) {
+function Card({ instructor, classTitle, rating = 0, rate, srcImage }: Props) {
   const starCount = Math.round(rating);
 
   return (
     <>
       <Content>
-        <StyledAvatar size={95} />
+        <Avatar size={95} srcImage={srcImage} />
         <Text>
           <p>{instructor}</p>
           <h3 title={classTitle}>

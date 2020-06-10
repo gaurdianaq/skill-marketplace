@@ -13,11 +13,12 @@ import { useSelector } from 'react-redux';
 import { RootState } from '../redux/reducer';
 
 const Container = styled.header`
-  height: ${p => p.theme.headerHeight};
+  height: ${(p) => p.theme.headerHeight};
   box-shadow: 0px 3px 7px 0px rgba(0, 0, 0, 0.1);
   display: flex;
   width: 100%;
   justify-content: space-between;
+  font-family: 'Montserrat', sans-serif;
 `;
 
 const Nav = styled.nav`
@@ -28,19 +29,43 @@ const Nav = styled.nav`
     padding: 0 1rem;
     text-transform: uppercase;
     text-decoration: none;
-    color: ${p => p.theme.strokeColor};
-    font-family: ${p => p.theme.textFont};
+    color: ${(p) => p.theme.strokeColor};
+    font-family: ${(p) => p.theme.textFont};
   }
 `;
 
 const Logo = styled.div`
   height: 100%;
   width: 200px;
-  background-color: pink;
   color: black;
   display: flex;
   justify-content: center;
   align-items: center;
+  font-weight: 700;
+  font-size: 22px;
+`;
+
+const LogoLink = styled.link`
+  text-decoration: none;
+`;
+
+const LogInButton = styled.button`
+  height: 47px;
+  width: 137px;
+  border-radius: 5px;
+  border: 1px solid #3fcdcf;
+  background: transparent;
+  color: #3fcdcf;
+  padding: 14px 28px;
+`;
+
+const SignUpButton = styled.button`
+  height: 47px;
+  width: 137px;
+  border-radius: 5px;
+  background-color: #3fcdcf;
+  border: none;
+  color: white;
 `;
 
 function Header() {
@@ -49,23 +74,25 @@ function Header() {
   return (
     <Container>
       <Logo>
-        <Link to="/">LOGO</Link>
+        <Link to="/" style={{ textDecoration: 'none' }}>
+          Logo.
+        </Link>
       </Logo>
       <Nav>
-        <Link to="/">Browse</Link>
-        {/* <a href="#">Inbox</a> */}
         {loggedIn ? (
           <>
-            <a href="#">Inbox</a>
             <Link to={EDIT_PROFILE_ROUTE}>
               <Avatar size={30} />
             </Link>
-            <Link to={BACKEND_LOGOUT_ROUTE}>Logout</Link>
           </>
         ) : (
           <>
-            <Link to={REGISTER_ROUTE}>Register</Link>
-            <Link to={LOGIN_ROUTE}>Login</Link>
+            <a href={LOGIN_ROUTE}>
+              <LogInButton>LOGIN</LogInButton>
+            </a>
+            <a href={REGISTER_ROUTE}>
+              <SignUpButton>SIGN UP</SignUpButton>
+            </a>
           </>
         )}
       </Nav>
